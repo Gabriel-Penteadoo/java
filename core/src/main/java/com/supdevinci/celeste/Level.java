@@ -10,15 +10,15 @@ import com.badlogic.gdx.math.Rectangle;
  *
  * Coordinate system
  * -----------------
- *   worldX = col * TILE_SIZE
- *   worldY = (ROWS - 1 - row) * TILE_SIZE   (row 0 = top, row ROWS-1 = bottom)
+ * worldX = col * TILE_SIZE
+ * worldY = (ROWS - 1 - row) * TILE_SIZE (row 0 = top, row ROWS-1 = bottom)
  *
  * Tile types
  * ----------
- *   TILE_NONE  (0) – passable air
- *   TILE_SOLID (1) – solid wall / platform
- *   TILE_SPIKE (2) – instant-kill hazard
- *   TILE_GOAL  (3) – level-end crystal
+ * TILE_NONE (0) – passable air
+ * TILE_SOLID (1) – solid wall / platform
+ * TILE_SPIKE (2) – instant-kill hazard
+ * TILE_GOAL (3) – level-end crystal
  */
 public class Level {
 
@@ -28,41 +28,41 @@ public class Level {
 
     public static final int TILE_SIZE = 16;
 
-    private static final int TILE_NONE  = 0;
+    private static final int TILE_NONE = 0;
     private static final int TILE_SOLID = 1;
     private static final int TILE_SPIKE = 2;
-    private static final int TILE_GOAL  = 3;
+    private static final int TILE_GOAL = 3;
 
     // -----------------------------------------------------------------------
-    // Map definition  (50 cols × 22 rows)
+    // Map definition (50 cols × 22 rows)
     // Row 0 = top of world, row 21 = bottom of world
     // '#' solid | 'S' spike | 'G' goal | 'P' spawn (treated as empty) | ' ' air
     // -----------------------------------------------------------------------
 
     // Each string is exactly 50 characters wide.
     private static final String[] MAP_RAW = {
-        "##################################################", // 0  – top ceiling
-        "#                                            G  #", // 1  – goal at col 45
-        "#                                      ######   #", // 2
-        "#                              ######            ", // 3
-        "#                       ######        SS         ", // 4  – spikes at cols 39-40
-        "#                 SS         ######              ", // 5  – spikes at cols 18-19
-        "#              ######              SS            ", // 6  – spikes at cols 31-32
-        "#         SS          #####                      ", // 7  – spikes at cols 10-11
-        "#         ###               ######               ", // 8
-        "#                   SS             ######        ", // 9  – spikes at cols 20-21
-        "#         ######              SS         ######  ", // 10 – spikes at cols 30-31
-        "#    SS                  ###         SS          ", // 11 – spikes at cols 5-6 & 37-38
-        "#    ###     SS               ###                ", // 12 – spikes at cols 13-14
-        "#             ###                   ###          ", // 13
-        "#   SS               ###                  SS     ", // 14 – spikes at 4-5 & 42-43
-        "#   ###   ######           ####       #####      ", // 15
-        "#                   ###         ###              ", // 16
-        "#    ####                              ###       ", // 17
-        "#P                  ###    ###                   ", // 18 – spawn at col 1
-        "###   ######              ######           ##### ", // 19
-        "#################################          ######", // 20
-        "##################################################", // 21 – bottom ground
+            "##################################################", // 0 – top ceiling
+            "#                                            G  #", // 1 – goal at col 45
+            "#                                      ######   #", // 2
+            "#                              ######            ", // 3
+            "#                       ######        SS         ", // 4 – spikes at cols 39-40
+            "#                 SS         ######              ", // 5 – spikes at cols 18-19
+            "#              ######              SS            ", // 6 – spikes at cols 31-32
+            "#         SS          #####                      ", // 7 – spikes at cols 10-11
+            "#         ###               ######               ", // 8
+            "#                   SS             ######        ", // 9 – spikes at cols 20-21
+            "#         ######              SS         ######  ", // 10 – spikes at cols 30-31
+            "#    SS                  ###         SS          ", // 11 – spikes at cols 5-6 & 37-38
+            "#    ###     SS               ###                ", // 12 – spikes at cols 13-14
+            "#             ###                   ###          ", // 13
+            "#   SS               ###                  SS     ", // 14 – spikes at 4-5 & 42-43
+            "#   ###   ######           ####       #####      ", // 15
+            "#                                                ", // 16
+            "#                                                ", // 17
+            "#P                                               ", // 18 – spawn at col 1
+            "#                                                ", // 19
+            "#                                                ", // 20
+            "##################################################", // 21 – bottom ground
     };
 
     // -----------------------------------------------------------------------
@@ -122,24 +122,27 @@ public class Level {
     }
 
     // -----------------------------------------------------------------------
-    // Collision queries  (all take tile coordinates)
+    // Collision queries (all take tile coordinates)
     // -----------------------------------------------------------------------
 
     /** Returns true if the tile at (tileX, tileY) blocks movement. */
     public boolean isSolid(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY)) return true; // treat OOB as solid walls
+        if (outOfBounds(tileX, tileY))
+            return true; // treat OOB as solid walls
         return tiles[ROWS - 1 - tileY][tileX] == TILE_SOLID;
     }
 
     /** Returns true if the tile at (tileX, tileY) is a lethal spike. */
     public boolean isSpike(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY)) return false;
+        if (outOfBounds(tileX, tileY))
+            return false;
         return tiles[ROWS - 1 - tileY][tileX] == TILE_SPIKE;
     }
 
     /** Returns true if the tile at (tileX, tileY) is the goal crystal. */
     public boolean isGoal(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY)) return false;
+        if (outOfBounds(tileX, tileY))
+            return false;
         return tiles[ROWS - 1 - tileY][tileX] == TILE_GOAL;
     }
 
@@ -165,7 +168,8 @@ public class Level {
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
                 int tile = tiles[row][col];
-                if (tile == TILE_NONE) continue;
+                if (tile == TILE_NONE)
+                    continue;
 
                 float wx = col * TILE_SIZE;
                 float wy = (ROWS - 1 - row) * TILE_SIZE;
@@ -177,8 +181,8 @@ public class Level {
                         sr.rect(wx, wy, TILE_SIZE, TILE_SIZE);
                         // Bright inner highlight (top + left 1-pixel bevel)
                         sr.setColor(0.32f, 0.36f, 0.50f, 1f);
-                        sr.rect(wx, wy + TILE_SIZE - 2, TILE_SIZE, 2);   // top edge
-                        sr.rect(wx, wy, 2, TILE_SIZE);                    // left edge
+                        sr.rect(wx, wy + TILE_SIZE - 2, TILE_SIZE, 2); // top edge
+                        sr.rect(wx, wy, 2, TILE_SIZE); // left edge
                         break;
 
                     case TILE_SPIKE:
@@ -186,10 +190,9 @@ public class Level {
                         sr.setColor(0.85f, 0.15f, 0.15f, 1f);
                         // Draw as a filled triangle using a thin rect + triangle
                         sr.triangle(
-                            wx,                    wy,
-                            wx + TILE_SIZE,        wy,
-                            wx + TILE_SIZE * 0.5f, wy + TILE_SIZE
-                        );
+                                wx, wy,
+                                wx + TILE_SIZE, wy,
+                                wx + TILE_SIZE * 0.5f, wy + TILE_SIZE);
                         break;
 
                     case TILE_GOAL:
@@ -198,9 +201,9 @@ public class Level {
                         // Diamond shape
                         float cx = wx + TILE_SIZE * 0.5f;
                         float cy = wy + TILE_SIZE * 0.5f;
-                        float r  = TILE_SIZE * 0.45f;
-                        sr.triangle(cx,     cy + r, cx - r, cy,     cx,     cy - r);
-                        sr.triangle(cx,     cy + r, cx + r, cy,     cx,     cy - r);
+                        float r = TILE_SIZE * 0.45f;
+                        sr.triangle(cx, cy + r, cx - r, cy, cx, cy - r);
+                        sr.triangle(cx, cy + r, cx + r, cy, cx, cy - r);
                         break;
                 }
             }
@@ -227,14 +230,29 @@ public class Level {
     // Accessors
     // -----------------------------------------------------------------------
 
-    public float getSpawnX() { return spawnX; }
-    public float getSpawnY() { return spawnY; }
-    public float getGoalX()  { return goalX;  }
-    public float getGoalY()  { return goalY;  }
+    public float getSpawnX() {
+        return spawnX;
+    }
+
+    public float getSpawnY() {
+        return spawnY;
+    }
+
+    public float getGoalX() {
+        return goalX;
+    }
+
+    public float getGoalY() {
+        return goalY;
+    }
 
     /** Total level width in pixels. */
-    public float getWidth()  { return COLS * TILE_SIZE; }
+    public float getWidth() {
+        return COLS * TILE_SIZE;
+    }
 
     /** Total level height in pixels. */
-    public float getHeight() { return ROWS * TILE_SIZE; }
+    public float getHeight() {
+        return ROWS * TILE_SIZE;
+    }
 }
