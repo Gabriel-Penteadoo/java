@@ -22,6 +22,8 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
  * • 8-directional dash with 1 dash charge (replenished on landing)
  * • Wall sliding (slow descent when pressed against a wall)
  * • Wall jumping (jump away from a wall with locked horizontal momentum)
+ * • Hyper Dash: down-diagonal dash + land + jump → very fast horizontal skim
+ * • Super Dash: horizontal dash + land + jump → fast horizontal arc
  * • Spikes → instant death / respawn
  * • Goal overlap → win flag raised (handled by GameScreen)
  */
@@ -128,6 +130,45 @@ public class Player {
      */
     private static final float WALL_JUMP_LOCK_TIME = 0.16f;
 
+    // --- Hyper Dash ---
+
+    /**
+     * Horizontal speed applied by a Hyper Dash (down-diagonal dash → land → jump).
+     * Much faster than a normal dash exit; the trajectory skims the ground because
+     * the vertical component is intentionally tiny.
+     */
+    private static final float HYPER_SPEED = 780f;
+
+    /**
+     * Small upward boost given by a Hyper Dash.
+     * Kept low so the player stays close to the ground (the defining feel).
+     * No variable-jump extension is granted — the arc is meant to be flat.
+     */
+    private static final float HYPER_VERTICAL = 300f;
+
+    // --- Super Dash ---
+
+    /**
+     * Horizontal speed applied by a Super Dash (horizontal dash → land → jump).
+     * Lower than HYPER_SPEED but still well above normal run speed.
+     */
+    private static final float SUPER_SPEED = 260f;
+
+    /**
+     * Vertical force applied by a Super Dash.
+     * Produces a forward arc that is taller than a normal jump.
+     * Variable-jump extension IS granted so the player can control the peak.
+     */
+    private static final float SUPER_JUMP_FORCE = 300f;
+
+    /**
+     * How long (seconds) after landing from a qualifying dash the player can
+     * trigger a Hyper or Super Dash by pressing jump.
+     * Pairs with the existing JUMP_BUFFER_TIME so the input can come slightly
+     * before OR after the landing moment.
+     */
+    private static final float DASH_JUMP_WINDOW = 0.20f;
+
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
@@ -156,6 +197,40 @@ public class Player {
 
     // Wall-jump horizontal lock
     private float wallJumpLockTimer = 0f;
+
+    // -------------------------------------------------------------------
+    // Hyper / Super Dash state
+    //
+    // When a qualifying dash ends (down-diagonal or horizontal), we record
+    // what kind it was and open a time window on the next landing.
+    // If jump is buffered (pressed just before landing) or pressed fresh
+    // inside the window, the dash-jump triggers instead of a normal jump.
+    // -------------------------------------------------------------------
+
+    /**
+     * Set when a qualifying dash ends while the player is still airborne.
+     * Cleared the moment the player lands (which opens dashJumpWindowTimer).
+     */
+    private boolean dashJumpPending = false;
+
+    /**
+     * true → pending/active action is a Hyper Dash (down-diagonal)
+     * false → pending/active action is a Super Dash (horizontal)
+     */
+    private boolean dashJumpIsHyper = false;
+
+    /**
+     * Horizontal direction (+1 / -1) inherited from the triggering dash.
+     * Used to set vx when the dash-jump fires.
+     */
+    private int dashJumpDirSign = 0;
+
+    /**
+     * Counts down after landing from a qualifying dash.
+     * While > 0, a buffered (or fresh) jump triggers a Hyper or Super Dash
+     * instead of a normal jump.
+     */
+    private float dashJumpWindowTimer = 0f;
 
     // Status flags read by GameScreen
     private boolean dead = false;
@@ -193,6 +268,11 @@ public class Player {
         jumpBufferTimer = 0f;
         variableJumpTimer = 0f;
         wallJumpLockTimer = 0f;
+
+        dashJumpPending = false;
+        dashJumpIsHyper = false;
+        dashJumpDirSign = 0;
+        dashJumpWindowTimer = 0f;
 
         dead = false;
         won = false;
@@ -258,9 +338,11 @@ public class Player {
                 vy = maxFall;
         }
 
-        // 10. Tick jump-buffer timer
+        // 10. Tick jump-buffer and dash-jump-window timers
         if (jumpBufferTimer > 0f)
             jumpBufferTimer -= dt;
+        if (dashJumpWindowTimer > 0f)
+            dashJumpWindowTimer -= dt;
 
         // 11. Update facing direction
         if (vx > 1f)
@@ -274,6 +356,10 @@ public class Player {
     // -----------------------------------------------------------------------
 
     private void startDash(InputHandler input) {
+        // Starting a new dash cancels any pending hyper/super state.
+        dashJumpPending = false;
+        dashJumpWindowTimer = 0f;
+
         // Build 8-directional vector from current input
         float dx = 0f, dy = 0f;
         if (input.isLeftHeld())
@@ -308,7 +394,7 @@ public class Player {
     private void updateDash(float dt, InputHandler input) {
         dashTimer -= dt;
 
-        // Lock velocity to dash direction (gravity ignored)
+        // Lock velocity to dash direction (gravity ignored during dash)
         vx = dashDirX * DASH_SPEED;
         vy = dashDirY * DASH_SPEED;
 
@@ -316,9 +402,24 @@ public class Player {
             dashing = false;
             dashCooldownTimer = DASH_COOLDOWN;
 
-            // Transition velocity: keep horizontal momentum but cap it
-            // Pure horizontal dash → bleed down to run speed
-            // Diagonal / vertical dashes retain full velocity; gravity takes over naturally
+            // Classify the dash direction so we know which dash-jump to grant.
+            // Down-diagonal: both axes are non-zero and Y is downward.
+            // Horizontal: no vertical component at all.
+            boolean isDownDiag = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
+            boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
+
+            if (isDownDiag || isHorizontal) {
+                dashJumpIsHyper = isDownDiag;
+                dashJumpDirSign = (int) Math.signum(dashDirX);
+
+                if (grounded) {
+                    // Dash expired while on the ground → open the window immediately.
+                    dashJumpWindowTimer = DASH_JUMP_WINDOW;
+                } else {
+                    // Still in the air → remember this; window opens on landing.
+                    dashJumpPending = true;
+                }
+            }
         }
     }
 
@@ -372,18 +473,52 @@ public class Player {
     }
 
     // -----------------------------------------------------------------------
-    // Jump (coyote time + buffering + variable height + wall jump)
+    // Jump (coyote time + buffering + variable height + wall jump +
+    // Hyper Dash + Super Dash)
     // -----------------------------------------------------------------------
 
     private void updateJump(float dt, InputHandler input) {
+
+        // --- Hyper / Super Dash jump (checked before normal jump) -----------
+        //
+        // Requires:
+        // • dashJumpWindowTimer > 0 (recently landed from a qualifying dash)
+        // • jumpBufferTimer > 0 (jump was pressed within the buffer window)
+        // • grounded (sanity: must be on the ground)
+        //
+        // Velocity is OVERRIDDEN (not added) to guarantee consistent speed.
+        // The direction comes from dashJumpDirSign, which was saved when the
+        // triggering dash ended.
+        if (dashJumpWindowTimer > 0f && jumpBufferTimer > 0f && grounded) {
+            if (dashJumpIsHyper) {
+                // Hyper Dash: extremely fast horizontal, tiny vertical boost.
+                // The flat trajectory is the whole point — stay close to the ground.
+                // No variable-jump extension so the player can't "cheat" more height.
+                vx = dashJumpDirSign * HYPER_SPEED;
+                vy = HYPER_VERTICAL;
+                Gdx.app.log("Player", "HYPER DASH! vx=" + vx + " vy=" + vy);
+            } else {
+                // Super Dash: fast horizontal + a solid forward arc.
+                // Variable-jump IS granted so the player can control the peak height.
+                vx = dashJumpDirSign * SUPER_SPEED;
+                vy = SUPER_JUMP_FORCE;
+                variableJumpTimer = VARIABLE_JUMP_TIME;
+                Gdx.app.log("Player", "SUPER DASH! vx=" + vx + " vy=" + vy);
+            }
+            jumpBufferTimer = 0f;
+            dashJumpWindowTimer = 0f;
+            grounded = false;
+            return;
+        }
+
+        // --- Normal / coyote / wall jump ------------------------------------
         boolean canCoyoteJump = coyoteTimer > 0f;
         boolean canWallJump = (onWallLeft || onWallRight) && !grounded;
 
         if (jumpBufferTimer > 0f && (canCoyoteJump || canWallJump)) {
             if (canWallJump) {
                 // Jump away from whichever wall we're touching.
-                // If the player is holding a direction away from the wall, give full speed;
-                // otherwise give reduced horizontal speed.
+                // Full speed if holding any horizontal direction, half if neutral.
                 boolean holdingAway = onWallLeft ? input.isRightHeld() : input.isLeftHeld();
                 boolean holdingTowards = onWallLeft ? input.isLeftHeld() : input.isRightHeld();
                 float wallJumpX = (holdingAway || holdingTowards) ? WALL_JUMP_X : WALL_JUMP_X * 0.5f;
@@ -421,8 +556,6 @@ public class Player {
         grounded = false; // reset each frame; resolveY sets it back to true if needed
 
         // Sub-step to prevent tunnelling at high dash/jump speeds.
-        // 4 sub-steps at 60fps means ~0.004 s per sub-step → max 1.3 px per step at 320
-        // px/s.
         final int STEPS = 4;
         float subDt = dt / STEPS;
 
@@ -438,9 +571,28 @@ public class Player {
                 return;
         }
 
-        // If we just landed, cancel any pending variable-jump
+        // Just landed this frame
         if (grounded && !wasGrounded) {
             variableJumpTimer = 0f;
+
+            // If we land while the dash is still active (dashing into the floor),
+            // cut the dash short and treat it as a qualifying landing.
+            if (dashing) {
+                boolean isDownDiag = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
+                boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
+                dashing = false;
+                dashCooldownTimer = DASH_COOLDOWN;
+                if (isDownDiag || isHorizontal) {
+                    dashJumpIsHyper = isDownDiag;
+                    dashJumpDirSign = (int) Math.signum(dashDirX);
+                    dashJumpWindowTimer = DASH_JUMP_WINDOW;
+                }
+            }
+            // If a qualifying dash ended while we were airborne, open the window now.
+            else if (dashJumpPending) {
+                dashJumpWindowTimer = DASH_JUMP_WINDOW;
+                dashJumpPending = false;
+            }
         }
     }
 
@@ -547,7 +699,6 @@ public class Player {
 
         int bottom = tileY(y + 4f);
         int top = tileY(y + HEIGHT - 4f);
-
         int leftTile = tileX(x - 1f);
         int rightTile = tileX(x + WIDTH + 1f);
 
@@ -605,7 +756,6 @@ public class Player {
     // -----------------------------------------------------------------------
 
     public void render(ShapeRenderer sr) {
-        // Enable alpha blending so the dash trail can be semi-transparent
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
@@ -613,9 +763,14 @@ public class Player {
 
         // --- Dash glow ---
         if (dashing) {
-            // Bright cyan halo around the player during a dash
             sr.setColor(0.3f, 0.9f, 1.0f, 0.45f);
             sr.rect(x - 5, y - 5, WIDTH + 10, HEIGHT + 10);
+        }
+
+        // --- Hyper/Super Dash window indicator: green tint on the ground ---
+        if (dashJumpWindowTimer > 0f) {
+            sr.setColor(0.2f, 1f, 0.4f, 0.35f);
+            sr.rect(x - 3, y - 3, WIDTH + 6, HEIGHT + 6);
         }
 
         // --- Wall-slide indicator: orange tint on the touching side ---
@@ -625,7 +780,6 @@ public class Player {
         }
 
         // --- Player body ---
-        // White normally, tinted cyan while dashing, red briefly after death
         if (dashing) {
             sr.setColor(0.6f, 1f, 1f, 1f);
         } else {
@@ -640,7 +794,6 @@ public class Player {
         } else {
             sr.setColor(0.55f, 0.1f, 0.1f, 1f); // dark red (no charge)
         }
-        // Hair tuft centred on top of the player
         float hairW = WIDTH * 0.6f;
         sr.rect(x + (WIDTH - hairW) * 0.5f, y + HEIGHT, hairW, 3f);
 
