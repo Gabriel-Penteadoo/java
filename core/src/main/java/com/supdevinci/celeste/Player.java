@@ -152,14 +152,14 @@ public class Player {
      * Horizontal speed applied by a Super Dash (horizontal dash → land → jump).
      * Lower than HYPER_SPEED but still well above normal run speed.
      */
-    private static final float SUPER_SPEED = 260f;
+    private static final float SUPER_SPEED = 550f;
 
     /**
      * Vertical force applied by a Super Dash.
      * Produces a forward arc that is taller than a normal jump.
      * Variable-jump extension IS granted so the player can control the peak.
      */
-    private static final float SUPER_JUMP_FORCE = 300f;
+    private static final float SUPER_JUMP_FORCE = 380f;
 
     /**
      * How long (seconds) after landing from a qualifying dash the player can
