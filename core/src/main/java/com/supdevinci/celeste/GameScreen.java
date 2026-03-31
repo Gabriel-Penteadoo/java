@@ -136,7 +136,7 @@ public class GameScreen implements Screen {
             player.update(dt, input, level);
 
             // Player fell below the map → respawn
-            if (player.getY() < -Level.TILE_SIZE * 6) {
+            if (player.getY() < 0) {
                 triggerDeath();
             }
 

@@ -1,5 +1,6 @@
 package com.supdevinci.celeste;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
@@ -34,45 +35,34 @@ public class Level {
     private static final int TILE_GOAL = 3;
 
     // -----------------------------------------------------------------------
-    // Map definition (50 cols × 22 rows)
-    // Row 0 = top of world, row 21 = bottom of world
-    // '#' solid | 'S' spike | 'G' goal | 'P' spawn (treated as empty) | ' ' air
+    // Map file
     // -----------------------------------------------------------------------
 
-    // Each string is exactly 50 characters wide.
-    private static final String[] MAP_RAW = {
-            "##################################################", // 0 – top ceiling
-            "#                                            G  #", // 1 – goal at col 45
-            "#                                      ######   #", // 2
-            "#                              ######            ", // 3
-            "#                       ######        SS         ", // 4 – spikes at cols 39-40
-            "#                 SS         ######              ", // 5 – spikes at cols 18-19
-            "#              ######              SS            ", // 6 – spikes at cols 31-32
-            "#         SS          #####                      ", // 7 – spikes at cols 10-11
-            "#         ###               ######               ", // 8
-            "#                   SS             ######        ", // 9 – spikes at cols 20-21
-            "#         ######              SS         ######  ", // 10 – spikes at cols 30-31
-            "#    SS                  ###         SS          ", // 11 – spikes at cols 5-6 & 37-38
-            "#    ###     SS               ###                ", // 12 – spikes at cols 13-14
-            "#             ###                   ###          ", // 13
-            "#   SS               ###                  SS     ", // 14 – spikes at 4-5 & 42-43
-            "#   ###   ######           ####       #####      ", // 15
-            "#                                                ", // 16
-            "#                                                ", // 17
-            "#P                                               ", // 18 – spawn at col 1
-            "#                                                ", // 19
-            "#                                                ", // 20
-            "##################################################", // 21 – bottom ground
-    };
+    /**
+     * Path (relative to the assets folder) of the plain-text map file.
+     *
+     * Format — each character is one tile:
+     *   '#'  solid wall / platform
+     *   'S'  spike (instant-kill hazard)
+     *   'G'  goal crystal
+     *   'P'  spawn point (treated as empty air)
+     *   ' '  empty air
+     *
+     * All rows should be the same width; shorter rows are padded with air.
+     * The file is loaded at runtime so you can edit it without recompiling.
+     * Open it in any text editor — a monospace font makes the grid easy to read.
+     */
+    private static final String MAP_FILE = "map.txt";
 
     // -----------------------------------------------------------------------
-    // Fields
+    // Fields (dimensions are derived from the file at load time)
     // -----------------------------------------------------------------------
 
-    public static final int COLS = 50;
-    public static final int ROWS = 22;
+    public static int COLS = 50;
+    public static int ROWS = 22;
 
-    private final int[][] tiles = new int[ROWS][COLS];
+    // Allocated after the file is read and dimensions are known
+    private int[][] tiles;
 
     /** World-space bottom-left of the spawn tile. */
     private float spawnX, spawnY;
@@ -89,8 +79,26 @@ public class Level {
     }
 
     private void parseTiles() {
+        // Read every line from the map file
+        String raw = Gdx.files.internal(MAP_FILE).readString("UTF-8");
+        // Normalise line endings and split
+        String[] lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1);
+
+        // Derive dimensions from the file content
+        ROWS = lines.length;
+        COLS = 0;
+        for (String line : lines) {
+            if (line.length() > COLS) COLS = line.length();
+        }
+        if (ROWS == 0 || COLS == 0) {
+            Gdx.app.error("Level", "map.txt is empty or malformed");
+            ROWS = 1; COLS = 1;
+        }
+
+        tiles = new int[ROWS][COLS];
+
         for (int row = 0; row < ROWS; row++) {
-            String line = row < MAP_RAW.length ? MAP_RAW[row] : "";
+            String line = row < lines.length ? lines[row] : "";
 
             for (int col = 0; col < COLS; col++) {
                 char c = col < line.length() ? line.charAt(col) : ' ';

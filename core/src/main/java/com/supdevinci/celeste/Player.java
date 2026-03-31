@@ -41,7 +41,7 @@ public class Player {
     // -----------------------------------------------------------------------
 
     /** Top horizontal speed on the ground (px/s). */
-    private static final float RUN_SPEED = 150f;
+    private static final float RUN_SPEED = 100f;
 
     /** Horizontal acceleration when input is pressed on the ground. */
     private static final float RUN_ACCEL = 1400f;
@@ -50,7 +50,7 @@ public class Player {
     private static final float RUN_ACCEL_AIR = 900f;
 
     /** Deceleration when no horizontal input is pressed on the ground. */
-    private static final float RUN_DECEL = 1800f;
+    private static final float RUN_DECEL = 2500f;
 
     /** Deceleration when no horizontal input is pressed in the air. */
     private static final float RUN_DECEL_AIR = 400f;
@@ -78,7 +78,7 @@ public class Player {
     // --- Jump ---
 
     /** Initial vertical velocity given on jump. */
-    private static final float JUMP_SPEED = 330f;
+    private static final float JUMP_SPEED = 270f;
 
     /**
      * How long (seconds) the player can still jump after walking off a ledge.
@@ -101,7 +101,7 @@ public class Player {
     // --- Dash ---
 
     /** Speed of the dash impulse (px/s). */
-    private static final float DASH_SPEED = 420f;
+    private static final float DASH_SPEED = 320f;
 
     /** How long the dash lasts (seconds). Gravity is ignored during this time. */
     private static final float DASH_DURATION = 0.14f;
@@ -110,7 +110,7 @@ public class Player {
      * Brief cooldown after a dash before another can start.
      * Prevents accidentally chaining dashes on the same frame.
      */
-    private static final float DASH_COOLDOWN = 0.08f;
+    private static final float DASH_COOLDOWN = 0.2f;
 
     // --- Wall mechanics ---
 
@@ -137,14 +137,14 @@ public class Player {
      * Much faster than a normal dash exit; the trajectory skims the ground because
      * the vertical component is intentionally tiny.
      */
-    private static final float HYPER_SPEED = 780f;
+    private static final float HYPER_SPEED = 580f;
 
     /**
      * Small upward boost given by a Hyper Dash.
      * Kept low so the player stays close to the ground (the defining feel).
      * No variable-jump extension is granted — the arc is meant to be flat.
      */
-    private static final float HYPER_VERTICAL = 300f;
+    private static final float HYPER_VERTICAL = 260f;
 
     // --- Super Dash ---
 
@@ -152,14 +152,14 @@ public class Player {
      * Horizontal speed applied by a Super Dash (horizontal dash → land → jump).
      * Lower than HYPER_SPEED but still well above normal run speed.
      */
-    private static final float SUPER_SPEED = 550f;
+    private static final float SUPER_SPEED = 450f;
 
     /**
      * Vertical force applied by a Super Dash.
      * Produces a forward arc that is taller than a normal jump.
      * Variable-jump extension IS granted so the player can control the peak.
      */
-    private static final float SUPER_JUMP_FORCE = 380f;
+    private static final float SUPER_JUMP_FORCE = 300f;
 
     /**
      * How long (seconds) after landing from a qualifying dash the player can
@@ -167,7 +167,23 @@ public class Player {
      * Pairs with the existing JUMP_BUFFER_TIME so the input can come slightly
      * before OR after the landing moment.
      */
-    private static final float DASH_JUMP_WINDOW = 0.20f;
+    private static final float DASH_JUMP_WINDOW = 0.10f;
+
+    // --- Ultra Dash ---
+
+    /**
+     * Minimum absolute horizontal speed (px/s) the player must already have
+     * when starting an oblique dash for it to count as an Ultra Dash.
+     * This is well above RUN_SPEED so it only triggers after a hyper/super.
+     */
+    private static final float ULTRA_THRESHOLD = 250f;
+
+    /**
+     * Speed multiplier applied to vx when the player lands from a
+     * down-diagonal Ultra Dash. The momentum is preserved through the
+     * landing and given a small boost.
+     */
+    private static final float ULTRA_LANDING_MULT = 1.1f;
 
     // -----------------------------------------------------------------------
     // State
@@ -232,6 +248,40 @@ public class Player {
      */
     private float dashJumpWindowTimer = 0f;
 
+    // -------------------------------------------------------------------
+    // Ultra Dash state
+    //
+    // An Ultra Dash occurs when the player performs a diagonal dash while
+    // already moving at high horizontal speed (|vx| >= ULTRA_THRESHOLD).
+    //
+    // Down-diagonal Ultra: pre-dash speed is preserved during the dash
+    // (instead of being cut to dashDirX * DASH_SPEED). On landing the
+    // speed is preserved and given a small multiplier boost.
+    //
+    // Up-diagonal Ultra: same preservation during the dash, but when the
+    // dash ends the horizontal momentum is cut back to RUN_SPEED — the
+    // speed boost does NOT carry after the dash finishes.
+    // -------------------------------------------------------------------
+
+    /** True while an ultra-qualifying diagonal dash is executing. */
+    private boolean ultraDashActive = false;
+
+    /** true = down-diagonal ultra; false = up-diagonal ultra. */
+    private boolean ultraDashDown = false;
+
+    /** Absolute horizontal speed captured at the moment the ultra dash started. */
+    private float ultraPreSpeed = 0f;
+
+    /** Horizontal direction (+1 / -1) of the ultra dash. */
+    private int ultraDashSign = 0;
+
+    /**
+     * Set when a down-diagonal ultra dash ends while the player is still
+     * airborne. The landing boost is applied the moment the player touches
+     * the ground.
+     */
+    private boolean ultraLandingPending = false;
+
     // Status flags read by GameScreen
     private boolean dead = false;
     private boolean won = false;
@@ -273,6 +323,12 @@ public class Player {
         dashJumpIsHyper = false;
         dashJumpDirSign = 0;
         dashJumpWindowTimer = 0f;
+
+        ultraDashActive = false;
+        ultraDashDown = false;
+        ultraPreSpeed = 0f;
+        ultraDashSign = 0;
+        ultraLandingPending = false;
 
         dead = false;
         won = false;
@@ -356,9 +412,11 @@ public class Player {
     // -----------------------------------------------------------------------
 
     private void startDash(InputHandler input) {
-        // Starting a new dash cancels any pending hyper/super state.
+        // Starting a new dash cancels any pending hyper/super and ultra state.
         dashJumpPending = false;
         dashJumpWindowTimer = 0f;
+        ultraDashActive = false;
+        ultraLandingPending = false;
 
         // Build 8-directional vector from current input
         float dx = 0f, dy = 0f;
@@ -374,6 +432,16 @@ public class Player {
         // No input → dash in the direction the player is facing
         if (dx == 0f && dy == 0f)
             dx = facing;
+
+        // --- Ultra Dash detection (check raw dx/dy before normalization) ---
+        // Requires diagonal input AND high horizontal speed already.
+        float absVx = Math.abs(vx);
+        if (absVx >= ULTRA_THRESHOLD && dx != 0f && dy != 0f) {
+            ultraDashActive = true;
+            ultraDashDown = dy < 0f; // true = down-diagonal, false = up-diagonal
+            ultraPreSpeed = absVx;
+            ultraDashSign = (int) Math.signum(dx);
+        }
 
         // Normalize diagonal so speed is consistent
         if (dx != 0f && dy != 0f) {
@@ -394,13 +462,43 @@ public class Player {
     private void updateDash(float dt, InputHandler input) {
         dashTimer -= dt;
 
-        // Lock velocity to dash direction (gravity ignored during dash)
-        vx = dashDirX * DASH_SPEED;
-        vy = dashDirY * DASH_SPEED;
+        // Lock velocity to dash direction (gravity ignored during dash).
+        // Ultra Dash: if the player was already moving faster than the dash's
+        // horizontal component, preserve that higher speed instead of slowing
+        // them down.
+        if (ultraDashActive) {
+            float dashHx = Math.abs(dashDirX) * DASH_SPEED;
+            vx = ultraDashSign * Math.max(ultraPreSpeed, dashHx);
+            vy = dashDirY * DASH_SPEED;
+        } else {
+            vx = dashDirX * DASH_SPEED;
+            vy = dashDirY * DASH_SPEED;
+        }
 
         if (dashTimer <= 0f) {
             dashing = false;
             dashCooldownTimer = DASH_COOLDOWN;
+
+            // --- Ultra Dash end ---
+            if (ultraDashActive) {
+                ultraDashActive = false;
+                if (ultraDashDown) {
+                    // Down-ultra: speed boost is applied when landing.
+                    if (grounded) {
+                        // Rare case: dash expired while already on the ground.
+                        vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
+                        Gdx.app.log("Player", "DOWN ULTRA (ground)! vx=" + vx);
+                    } else {
+                        ultraLandingPending = true;
+                    }
+                } else {
+                    // Up-ultra: momentum does NOT carry after the dash ends.
+                    if (Math.abs(vx) > RUN_SPEED) {
+                        vx = ultraDashSign * RUN_SPEED;
+                    }
+                    Gdx.app.log("Player", "UP ULTRA end — momentum cut. vx=" + vx);
+                }
+            }
 
             // Classify the dash direction so we know which dash-jump to grant.
             // Down-diagonal: both axes are non-zero and Y is downward.
@@ -411,14 +509,9 @@ public class Player {
             if (isDownDiag || isHorizontal) {
                 dashJumpIsHyper = isDownDiag;
                 dashJumpDirSign = (int) Math.signum(dashDirX);
-
-                if (grounded) {
-                    // Dash expired while on the ground → open the window immediately.
-                    dashJumpWindowTimer = DASH_JUMP_WINDOW;
-                } else {
-                    // Still in the air → remember this; window opens on landing.
-                    dashJumpPending = true;
-                }
+                // Window starts as soon as the dash ends, whether airborne or not.
+                // The hyper/super still only fires once the player is grounded.
+                dashJumpWindowTimer = DASH_JUMP_WINDOW;
             }
         }
     }
@@ -490,20 +583,35 @@ public class Player {
         // The direction comes from dashJumpDirSign, which was saved when the
         // triggering dash ended.
         if (dashJumpWindowTimer > 0f && jumpBufferTimer > 0f && grounded) {
+            // Reverse dash support: if the player is holding a horizontal direction
+            // at the moment the jump fires, use that as the output direction instead
+            // of the dash direction. This allows e.g. dashing down-left and jumping
+            // right to get a reverse hyper/super.
+            int jumpDirSign;
+            if (input.isRightHeld()) {
+                jumpDirSign = 1;
+            } else if (input.isLeftHeld()) {
+                jumpDirSign = -1;
+            } else {
+                jumpDirSign = dashJumpDirSign; // no input → same direction as dash
+            }
+
             if (dashJumpIsHyper) {
                 // Hyper Dash: extremely fast horizontal, tiny vertical boost.
                 // The flat trajectory is the whole point — stay close to the ground.
                 // No variable-jump extension so the player can't "cheat" more height.
-                vx = dashJumpDirSign * HYPER_SPEED;
+                vx = jumpDirSign * HYPER_SPEED;
                 vy = HYPER_VERTICAL;
-                Gdx.app.log("Player", "HYPER DASH! vx=" + vx + " vy=" + vy);
+                Gdx.app.log("Player", "HYPER DASH! vx=" + vx + " vy=" + vy
+                        + (jumpDirSign != dashJumpDirSign ? " (REVERSE)" : ""));
             } else {
                 // Super Dash: fast horizontal + a solid forward arc.
                 // Variable-jump IS granted so the player can control the peak height.
-                vx = dashJumpDirSign * SUPER_SPEED;
+                vx = jumpDirSign * SUPER_SPEED;
                 vy = SUPER_JUMP_FORCE;
                 variableJumpTimer = VARIABLE_JUMP_TIME;
-                Gdx.app.log("Player", "SUPER DASH! vx=" + vx + " vy=" + vy);
+                Gdx.app.log("Player", "SUPER DASH! vx=" + vx + " vy=" + vy
+                        + (jumpDirSign != dashJumpDirSign ? " (REVERSE)" : ""));
             }
             jumpBufferTimer = 0f;
             dashJumpWindowTimer = 0f;
@@ -587,11 +695,23 @@ public class Player {
                     dashJumpDirSign = (int) Math.signum(dashDirX);
                     dashJumpWindowTimer = DASH_JUMP_WINDOW;
                 }
+                // Down-ultra that hit the ground while still dashing
+                if (ultraDashActive && ultraDashDown) {
+                    ultraDashActive = false;
+                    vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
+                    Gdx.app.log("Player", "DOWN ULTRA (mid-dash landing)! vx=" + vx);
+                } else {
+                    ultraDashActive = false;
+                }
             }
-            // If a qualifying dash ended while we were airborne, open the window now.
-            else if (dashJumpPending) {
-                dashJumpWindowTimer = DASH_JUMP_WINDOW;
-                dashJumpPending = false;
+            // Down-Ultra landing: preserve pre-dash speed and apply the boost multiplier.
+            // This runs independently of (and alongside) any hyper/super window that
+            // may have also opened — the ultra gives instant horizontal momentum while
+            // the hyper window still lets the player chain a hyper jump.
+            if (ultraLandingPending) {
+                vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
+                ultraLandingPending = false;
+                Gdx.app.log("Player", "DOWN ULTRA landing! vx=" + vx);
             }
         }
     }
