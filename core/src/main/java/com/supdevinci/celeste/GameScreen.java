@@ -10,26 +10,25 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Vector3;
 
 public class GameScreen implements Screen {
 
     public static final float VP_W = 480f;
     public static final float VP_H = 270f;
 
-    private static final float CAM_LERP   = 0.12f;
+    private static final float CAM_LERP = 0.12f;
     private static final float CAM_DEAD_Y = 20f; // vertical dead-zone (px)
     private static final float DEATH_PAUSE = 0.6f;
 
     private OrthographicCamera camera;
-    private ShapeRenderer      shapeRenderer;
-    private SpriteBatch        batch;
-    private BitmapFont         font;
+    private ShapeRenderer shapeRenderer;
+    private SpriteBatch batch;
+    private BitmapFont font;
     private OrthogonalTiledMapRenderer mapRenderer;
     private int[] mapLayerIndices;
 
-    private Level        level;
-    private Player       player;
+    private Level level;
+    private Player player;
     private InputHandler input;
 
     private float camTargetX, camTargetY;
@@ -42,16 +41,17 @@ public class GameScreen implements Screen {
         camera = new OrthographicCamera();
         camera.setToOrtho(false, VP_W, VP_H);
         shapeRenderer = new ShapeRenderer();
-        batch         = new SpriteBatch();
-        font          = new BitmapFont();
+        batch = new SpriteBatch();
+        font = new BitmapFont();
         font.setColor(Color.WHITE);
         input = new InputHandler();
         startLevel();
     }
 
     private void startLevel() {
-        if (level != null) level.dispose();
-        level  = new Level();
+        if (level != null)
+            level.dispose();
+        level = new Level();
         player = new Player(level.getSpawnX(), level.getSpawnY());
 
         if (mapRenderer == null) {
@@ -60,7 +60,7 @@ public class GameScreen implements Screen {
             mapRenderer.setMap(level.getTiledMap());
         }
 
-        String[] layerNames = {"background", "walls", "spikes"};
+        String[] layerNames = { "background", "walls", "spikes" };
         java.util.List<Integer> indices = new java.util.ArrayList<>();
         com.badlogic.gdx.maps.MapLayers layers = level.getTiledMap().getLayers();
         for (String name : layerNames) {
@@ -69,15 +69,15 @@ public class GameScreen implements Screen {
             }
         }
         mapLayerIndices = new int[indices.size()];
-        for (int i = 0; i < indices.size(); i++) mapLayerIndices[i] = indices.get(i);
+        for (int i = 0; i < indices.size(); i++)
+            mapLayerIndices[i] = indices.get(i);
 
-        camTargetX = player.getX() + Player.WIDTH  * 0.5f;
+        camTargetX = player.getX() + Player.WIDTH * 0.5f;
         camTargetY = player.getY() + Player.HEIGHT * 0.5f;
         camera.position.set(
-            MathUtils.clamp(camTargetX, VP_W * 0.5f, level.getWidth()  - VP_W * 0.5f),
-            MathUtils.clamp(camTargetY, VP_H * 0.5f, level.getHeight() - VP_H * 0.5f),
-            0f
-        );
+                MathUtils.clamp(camTargetX, VP_W * 0.5f, level.getWidth() - VP_W * 0.5f),
+                MathUtils.clamp(camTargetY, VP_H * 0.5f, level.getHeight() - VP_H * 0.5f),
+                0f);
         camera.update();
         deathTimer = 0f;
         flashTimer = 0f;
@@ -99,12 +99,16 @@ public class GameScreen implements Screen {
             }
         } else {
             player.update(dt, input, level);
-            if (player.getY() < 0)  triggerDeath();
-            if (player.isDead())    triggerDeath();
-            if (player.hasWon())    triggerWin();
+            if (player.getY() < 0)
+                triggerDeath();
+            if (player.isDead())
+                triggerDeath();
+            if (player.hasWon())
+                triggerWin();
         }
 
-        if (flashTimer > 0f) flashTimer -= dt;
+        if (flashTimer > 0f)
+            flashTimer -= dt;
         updateCamera(dt);
         draw();
     }
@@ -122,7 +126,7 @@ public class GameScreen implements Screen {
     }
 
     private void updateCamera(float dt) {
-        float px = player.getX() + Player.WIDTH  * 0.5f;
+        float px = player.getX() + Player.WIDTH * 0.5f;
         float py = player.getY() + Player.HEIGHT * 0.5f;
 
         camTargetX = px;
@@ -130,7 +134,7 @@ public class GameScreen implements Screen {
             camTargetY = py - Math.signum(py - camTargetY) * CAM_DEAD_Y;
         }
 
-        float clampedX = MathUtils.clamp(camTargetX, VP_W * 0.5f, level.getWidth()  - VP_W * 0.5f);
+        float clampedX = MathUtils.clamp(camTargetX, VP_W * 0.5f, level.getWidth() - VP_W * 0.5f);
         float clampedY = MathUtils.clamp(camTargetY, VP_H * 0.5f, level.getHeight() - VP_H * 0.5f);
 
         camera.position.x += (clampedX - camera.position.x) * CAM_LERP;
@@ -152,14 +156,15 @@ public class GameScreen implements Screen {
         drawGoal();
         player.render(shapeRenderer);
 
-        if (flashTimer > 0f) drawFlash();
+        if (flashTimer > 0f)
+            drawFlash();
         drawHud();
     }
 
     private void drawGoal() {
         float cx = level.getGoalX() + Level.TILE_SIZE * 0.5f;
         float cy = level.getGoalY() + Level.TILE_SIZE * 0.5f;
-        float r  = Level.TILE_SIZE * 0.45f;
+        float r = Level.TILE_SIZE * 0.45f;
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(1f, 0.85f, 0.1f, 1f);
@@ -174,9 +179,13 @@ public class GameScreen implements Screen {
 
         long seed = 0x9e3779b97f4a7c15L;
         for (int i = 0; i < 120; i++) {
-            seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
             float sx = (Math.abs((int) seed % (int) level.getWidth()));
-            seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
             float sy = (Math.abs((int) seed % (int) level.getHeight()));
             shapeRenderer.rect(sx, sy, 1.5f, 1.5f);
         }
@@ -186,8 +195,7 @@ public class GameScreen implements Screen {
 
     private void drawFlash() {
         shapeRenderer.setProjectionMatrix(
-            new com.badlogic.gdx.math.Matrix4().setToOrtho2D(0, 0, VP_W, VP_H)
-        );
+                new com.badlogic.gdx.math.Matrix4().setToOrtho2D(0, 0, VP_W, VP_H));
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -204,8 +212,7 @@ public class GameScreen implements Screen {
 
     private void drawHud() {
         batch.setProjectionMatrix(
-            new com.badlogic.gdx.math.Matrix4().setToOrtho2D(0, 0, VP_W, VP_H)
-        );
+                new com.badlogic.gdx.math.Matrix4().setToOrtho2D(0, 0, VP_W, VP_H));
         batch.begin();
 
         if (player.canDash()) {
@@ -224,26 +231,37 @@ public class GameScreen implements Screen {
 
         font.setColor(0.5f, 0.5f, 0.6f, 0.8f);
         font.draw(batch, "ARROWS/WASD move  |  Z/SPACE jump  |  X/SHIFT dash  |  R restart",
-            6, 14);
+                6, 14);
 
         batch.end();
     }
 
     @Override
     public void resize(int width, int height) {
-        if (width <= 0 || height <= 0) return;
+        if (width <= 0 || height <= 0)
+            return;
         camera.setToOrtho(false, VP_W, VP_H);
         camera.update();
     }
 
-    @Override public void pause()  {}
-    @Override public void resume() {}
-    @Override public void hide()   {}
+    @Override
+    public void pause() {
+    }
+
+    @Override
+    public void resume() {
+    }
+
+    @Override
+    public void hide() {
+    }
 
     @Override
     public void dispose() {
-        if (mapRenderer != null) mapRenderer.dispose();
-        if (level != null)       level.dispose();
+        if (mapRenderer != null)
+            mapRenderer.dispose();
+        if (level != null)
+            level.dispose();
         shapeRenderer.dispose();
         batch.dispose();
         font.dispose();
