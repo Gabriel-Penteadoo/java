@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 
@@ -53,10 +54,13 @@ public class GameScreen implements Screen {
     // Fields
     // -----------------------------------------------------------------------
 
-    private OrthographicCamera camera;
-    private ShapeRenderer      shapeRenderer;
-    private SpriteBatch        batch;
-    private BitmapFont         font;
+    private OrthographicCamera      camera;
+    private ShapeRenderer           shapeRenderer;
+    private SpriteBatch             batch;
+    private BitmapFont              font;
+    private OrthogonalTiledMapRenderer mapRenderer;
+
+    private int[] mapLayerIndices;
 
     private Level        level;
     private Player       player;
@@ -93,8 +97,28 @@ public class GameScreen implements Screen {
 
     /** (Re)initialise level and player — called on first show and on restart. */
     private void startLevel() {
+        if (level != null) level.dispose();
         level  = new Level();
         player = new Player(level.getSpawnX(), level.getSpawnY());
+
+        // Create or update the tiled-map renderer (reuses the existing SpriteBatch)
+        if (mapRenderer == null) {
+            mapRenderer = new OrthogonalTiledMapRenderer(level.getTiledMap(), 1f, batch);
+        } else {
+            mapRenderer.setMap(level.getTiledMap());
+        }
+
+        // Resolve layer render indices by name so the order in the TMX doesn't matter
+        String[] layerNames = {"background", "walls", "spikes"};
+        java.util.List<Integer> indices = new java.util.ArrayList<>();
+        com.badlogic.gdx.maps.MapLayers layers = level.getTiledMap().getLayers();
+        for (String name : layerNames) {
+            if (layers.get(name) != null) {
+                indices.add(layers.getIndex(name));
+            }
+        }
+        mapLayerIndices = new int[indices.size()];
+        for (int i = 0; i < indices.size(); i++) mapLayerIndices[i] = indices.get(i);
 
         // Snap the camera to the player immediately (no lerp on first frame)
         camTargetX = player.getX() + Player.WIDTH  * 0.5f;
@@ -203,17 +227,21 @@ public class GameScreen implements Screen {
     // -----------------------------------------------------------------------
 
     private void draw() {
-        // Background gradient: dark purple at top, near-black at bottom
         Gdx.gl.glClearColor(0.06f, 0.03f, 0.12f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         shapeRenderer.setProjectionMatrix(camera.combined);
 
-        // Draw background stars (static, world-space)
+        // Background stars (world-space, behind tiles)
         drawBackground();
 
-        // Level tiles
-        level.render(shapeRenderer);
+        // Tile map: background + walls layers rendered with the tileset
+        mapRenderer.setView(camera);
+        mapRenderer.render(mapLayerIndices);
+
+        // Goal crystal drawn on top of tiles
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        drawGoal();
 
         // Player
         player.render(shapeRenderer);
@@ -225,6 +253,21 @@ public class GameScreen implements Screen {
 
         // HUD (drawn in screen space)
         drawHud();
+    }
+
+    /** Yellow diamond crystal marking the level goal. */
+    private void drawGoal() {
+        float wx = level.getGoalX();
+        float wy = level.getGoalY();
+        float cx = wx + Level.TILE_SIZE * 0.5f;
+        float cy = wy + Level.TILE_SIZE * 0.5f;
+        float r  = Level.TILE_SIZE * 0.45f;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(1f, 0.85f, 0.1f, 1f);
+        shapeRenderer.triangle(cx, cy + r, cx - r, cy, cx, cy - r);
+        shapeRenderer.triangle(cx, cy + r, cx + r, cy, cx, cy - r);
+        shapeRenderer.end();
     }
 
     /** Cheap static star field — just draws fixed dots across the level. */
@@ -318,6 +361,8 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        if (mapRenderer != null) mapRenderer.dispose();
+        if (level != null)       level.dispose();
         shapeRenderer.dispose();
         batch.dispose();
         font.dispose();

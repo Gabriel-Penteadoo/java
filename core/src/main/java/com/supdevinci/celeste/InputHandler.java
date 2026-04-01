@@ -31,12 +31,17 @@ public class InputHandler {
 
     // ---------- Jump -------------------------------------------------------
 
-    /** True for every frame the jump key is held (used for variable jump height). */
+    /**
+     * True for every frame the jump key is held (used for variable jump height).
+     */
     public boolean isJumpHeld() {
         return Gdx.input.isKeyPressed(Keys.SPACE) || Gdx.input.isKeyPressed(Keys.Z);
     }
 
-    /** True only on the frame the jump key was first pressed (used for jump buffering). */
+    /**
+     * True only on the frame the jump key was first pressed (used for jump
+     * buffering).
+     */
     public boolean isJumpJustPressed() {
         return Gdx.input.isKeyJustPressed(Keys.SPACE) || Gdx.input.isKeyJustPressed(Keys.Z);
     }
@@ -46,8 +51,8 @@ public class InputHandler {
     /** True only on the frame the dash key was first pressed. */
     public boolean isDashJustPressed() {
         return Gdx.input.isKeyJustPressed(Keys.X)
-            || Gdx.input.isKeyJustPressed(Keys.SHIFT_LEFT)
-            || Gdx.input.isKeyJustPressed(Keys.SHIFT_RIGHT);
+                || Gdx.input.isKeyJustPressed(Keys.J)
+                || Gdx.input.isKeyJustPressed(Keys.SHIFT_RIGHT);
     }
 
     // ---------- Misc -------------------------------------------------------
