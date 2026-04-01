@@ -2,11 +2,13 @@
 eclipse.project.name = appName + '-core'
 
 dependencies {
-  api "com.badlogicgames.ashley:ashley:$ashleyVersion"
-  api "com.badlogicgames.box2dlights:box2dlights:$box2dlightsVersion"
-  api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
+  // Only the core LibGDX runtime is needed (no Box2D, no Ashley, no anim8)
   api "com.badlogicgames.gdx:gdx:$gdxVersion"
-  api "com.github.tommyettinger:anim8-gdx:$anim8Version"
+
+  testImplementation platform('org.junit:junit-bom:5.10.2')
+  testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testImplementation 'org.mockito:mockito-core:5.12.0'
 
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
@@ -15,4 +17,11 @@ dependencies {
 
 jar {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+test {
+  useJUnitPlatform()
+  testLogging {
+    events "passed", "failed", "skipped"
+  }
 }
