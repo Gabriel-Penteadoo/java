@@ -35,9 +35,9 @@ public class Player {
     private final float wallJumpY        = 400f;
     private final float wallJumpLockTime = 0.16f;
 
-    private final float hyperSpeed    = 580f;
-    private final float hyperVertical = 260f;
-    private final float superSpeed    = 450f;
+    private final float hyperSpeed     = 580f;
+    private final float hyperVertical  = 260f;
+    private final float superSpeed     = 450f;
     private final float superJumpForce = 300f;
 
     private final float dashJumpWindow  = 0.10f;
@@ -54,26 +54,23 @@ public class Player {
     private float coyoteTimer;
     private float jumpBufferTimer;
     private float variableJumpTimer;
-    private float dashCooldownTimer = 0f;
-    private float wallJumpLockTimer = 0f;
+    private float dashCooldownTimer  = 0f;
+    private float wallJumpLockTimer  = 0f;
     private float dashJumpWindowTimer = 0f;
 
-    private boolean canDash  = true;
-    private boolean dashing  = false;
+    private boolean canDash = true;
     private float   dashTimer = 0f;
     private float   dashDirX, dashDirY;
 
     private boolean dashJumpIsHyper = false;
     private int     dashJumpDirSign = 0;
 
-    private boolean ultraDashActive    = false;
-    private boolean ultraDashDown      = false;
-    private float   ultraPreSpeed      = 0f;
-    private int     ultraDashSign      = 0;
+    private boolean ultraDashActive     = false;
+    private boolean ultraDashDown       = false;
+    private float   ultraPreSpeed       = 0f;
+    private int     ultraDashSign       = 0;
     private boolean ultraLandingPending = false;
 
-    private boolean     dead   = false;
-    private boolean     won    = false;
     private int         facing = 1; // 1=right, -1=left
     private PlayerState state  = PlayerState.IDLE;
 
@@ -87,7 +84,7 @@ public class Player {
 
         grounded = false; onWallLeft = false; onWallRight = false;
 
-        canDash = true; dashing = false;
+        canDash = true;
         dashTimer = 0f; dashCooldownTimer = 0f;
 
         coyoteTimer = 0f; jumpBufferTimer = 0f;
@@ -98,22 +95,21 @@ public class Player {
         ultraDashActive = false; ultraDashDown = false;
         ultraPreSpeed = 0f; ultraDashSign = 0; ultraLandingPending = false;
 
-        dead = false; won = false;
         state = PlayerState.IDLE;
     }
 
     public void update(float dt, InputHandler input, Level level) {
-        if (dead || won) return;
+        if (state == PlayerState.DEAD || state == PlayerState.WON) return;
 
         if (input.isJumpJustPressed())
             jumpBufferTimer = jumpBufferTime;
 
-        if (input.isDashJustPressed() && canDash && !dashing && dashCooldownTimer <= 0f)
+        if (input.isDashJustPressed() && canDash && state != PlayerState.DASHING && dashCooldownTimer <= 0f)
             startDash(input);
 
         if (dashCooldownTimer > 0f) dashCooldownTimer -= dt;
 
-        if (dashing) {
+        if (state == PlayerState.DASHING) {
             updateDash(dt);
         } else {
             applyGravity(dt);
@@ -122,7 +118,7 @@ public class Player {
         }
 
         moveAndCollide(dt, level);
-        if (dead) return;
+        if (state == PlayerState.DEAD) return;
 
         checkWalls(level);
 
@@ -133,11 +129,11 @@ public class Player {
             coyoteTimer -= dt;
         }
 
-        if (wallJumpLockTimer  > 0f) wallJumpLockTimer  -= dt;
-        if (jumpBufferTimer    > 0f) jumpBufferTimer     -= dt;
-        if (dashJumpWindowTimer > 0f) dashJumpWindowTimer -= dt;
+        if (wallJumpLockTimer   > 0f) wallJumpLockTimer   -= dt;
+        if (jumpBufferTimer     > 0f) jumpBufferTimer      -= dt;
+        if (dashJumpWindowTimer > 0f) dashJumpWindowTimer  -= dt;
 
-        if (!dashing) {
+        if (state != PlayerState.DASHING) {
             boolean wallSliding = (onWallLeft || onWallRight) && !grounded && vy < 0f;
             float maxFall = wallSliding ? wallSlideSpeed : maxFallSpeed;
             if (vy < maxFall) vy = maxFall;
@@ -150,15 +146,11 @@ public class Player {
     }
 
     private void updateState() {
-        if (dead)    { state = PlayerState.DEAD;         return; }
-        if (won)     { state = PlayerState.WON;          return; }
-        if (dashing) { state = PlayerState.DASHING;      return; }
-        if (!grounded && (onWallLeft || onWallRight) && vy < 0f) {
-            state = PlayerState.WALL_SLIDING; return;
-        }
-        if (!grounded && vy > 0f)  { state = PlayerState.JUMPING; return; }
-        if (!grounded)             { state = PlayerState.FALLING;  return; }
-        if (Math.abs(vx) > 1f)    { state = PlayerState.RUNNING;  return; }
+        if (state == PlayerState.DEAD || state == PlayerState.WON || state == PlayerState.DASHING) return;
+        if (!grounded && (onWallLeft || onWallRight) && vy < 0f) { state = PlayerState.WALL_SLIDING; return; }
+        if (!grounded && vy > 0f) { state = PlayerState.JUMPING; return; }
+        if (!grounded)            { state = PlayerState.FALLING;  return; }
+        if (Math.abs(vx) > 1f)   { state = PlayerState.RUNNING;  return; }
         state = PlayerState.IDLE;
     }
 
@@ -187,9 +179,9 @@ public class Player {
             dashDirY = dy;
         }
 
-        dashing  = true;
+        state     = PlayerState.DASHING;
         dashTimer = dashDuration;
-        canDash  = false;
+        canDash   = false;
         variableJumpTimer = 0f;
     }
 
@@ -206,7 +198,7 @@ public class Player {
         }
 
         if (dashTimer <= 0f) {
-            dashing = false;
+            state = PlayerState.FALLING; // updateState() corrects after physics
             dashCooldownTimer = dashCooldown;
 
             if (ultraDashActive) {
@@ -227,8 +219,8 @@ public class Player {
         boolean isDownDiag   = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
         boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
         if (isDownDiag || isHorizontal) {
-            dashJumpIsHyper    = isDownDiag;
-            dashJumpDirSign    = (int) Math.signum(dashDirX);
+            dashJumpIsHyper     = isDownDiag;
+            dashJumpDirSign     = (int) Math.signum(dashDirX);
             dashJumpWindowTimer = dashJumpWindow;
         }
     }
@@ -246,8 +238,8 @@ public class Player {
     private void applyHorizontalMovement(float dt, InputHandler input) {
         float inputX = wallJumpLockTimer <= 0f ? input.getDirection().x : 0f;
 
-        float accel  = grounded ? runAccel    : runAccelAir;
-        float decel  = grounded ? runDecel    : runDecelAir;
+        float accel  = grounded ? runAccel : runAccelAir;
+        float decel  = grounded ? runDecel : runDecelAir;
         float target = inputX * runSpeed;
 
         if (inputX != 0f) {
@@ -274,13 +266,13 @@ public class Player {
                 variableJumpTimer = variableJumpTime;
             }
 
-            jumpBufferTimer    = 0f;
+            jumpBufferTimer     = 0f;
             dashJumpWindowTimer = 0f;
             grounded = false;
             return;
         }
 
-        boolean canCoyote  = coyoteTimer > 0f;
+        boolean canCoyote   = coyoteTimer > 0f;
         boolean canWallJump = (onWallLeft || onWallRight) && !grounded;
 
         if (jumpBufferTimer > 0f && (canCoyote || canWallJump)) {
@@ -315,18 +307,18 @@ public class Player {
         for (int i = 0; i < steps; i++) {
             x += vx * subDt;
             resolveX(level);
-            if (dead) return;
+            if (state == PlayerState.DEAD) return;
 
             y += vy * subDt;
             resolveY(level);
-            if (dead) return;
+            if (state == PlayerState.DEAD) return;
         }
 
         if (grounded && !wasGrounded) {
             variableJumpTimer = 0f;
 
-            if (dashing) {
-                dashing = false;
+            if (state == PlayerState.DASHING) {
+                state = PlayerState.FALLING; // updateState() corrects after physics
                 dashCooldownTimer = dashCooldown;
                 tryInitDashJumpWindow();
                 if (ultraDashDown && ultraDashActive)
@@ -415,8 +407,8 @@ public class Player {
         return (int) Math.floor(world / tileSize);
     }
 
-    private void die() { dead = true; }
-    private void win() { won  = true; }
+    private void die() { state = PlayerState.DEAD; }
+    private void win() { state = PlayerState.WON; }
 
     private float moveTowards(float current, float target, float step) {
         float diff = target - current;
@@ -429,7 +421,7 @@ public class Player {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         sr.begin(ShapeRenderer.ShapeType.Filled);
 
-        if (dashing) {
+        if (state == PlayerState.DASHING) {
             sr.setColor(GameColors.PLAYER_DASH_AURA);
             sr.rect(x - 5, y - 5, width + 10, height + 10);
         }
@@ -442,7 +434,7 @@ public class Player {
             sr.rect(x - 2, y, width + 4, height);
         }
 
-        sr.setColor(dashing ? GameColors.PLAYER_DASHING : GameColors.PLAYER_BODY);
+        sr.setColor(state == PlayerState.DASHING ? GameColors.PLAYER_DASHING : GameColors.PLAYER_BODY);
         sr.rect(x, y, width, height);
 
         sr.setColor(canDash ? GameColors.PLAYER_HAIR_READY : GameColors.PLAYER_HAIR_SPENT);
@@ -461,12 +453,12 @@ public class Player {
 
     public float       getX()          { return x; }
     public float       getY()          { return y; }
-    public boolean     isDead()        { return dead; }
-    public boolean     hasWon()        { return won; }
+    public boolean     isDead()        { return state == PlayerState.DEAD; }
+    public boolean     hasWon()        { return state == PlayerState.WON; }
     public boolean     isGrounded()    { return grounded; }
     public boolean     isOnWallLeft()  { return onWallLeft; }
     public boolean     isOnWallRight() { return onWallRight; }
-    public boolean     isDashing()     { return dashing; }
+    public boolean     isDashing()     { return state == PlayerState.DASHING; }
     public boolean     canDash()       { return canDash; }
     public PlayerState getState()      { return state; }
 }
