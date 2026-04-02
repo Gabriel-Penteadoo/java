@@ -1,7 +1,9 @@
 package com.supdevinci.celeste;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector2;
 
 public class Player {
 
@@ -44,7 +46,6 @@ public class Player {
 
     private float x, y;
     private float vx, vy;
-    private float spawnX, spawnY;
 
     private boolean grounded;
     private boolean onWallLeft;
@@ -77,8 +78,6 @@ public class Player {
     private PlayerState state  = PlayerState.IDLE;
 
     public Player(float spawnX, float spawnY) {
-        this.spawnX = spawnX;
-        this.spawnY = spawnY;
         respawn(spawnX, spawnY);
     }
 
@@ -117,7 +116,7 @@ public class Player {
         if (dashing) {
             updateDash(dt);
         } else {
-            applyGravity(dt, input);
+            applyGravity(dt);
             applyHorizontalMovement(dt, input);
             updateJump(dt, input);
         }
@@ -168,7 +167,7 @@ public class Player {
         ultraDashActive = false;
         ultraLandingPending = false;
 
-        com.badlogic.gdx.math.Vector2 d = input.getDirection();
+        Vector2 d = input.getDirection();
         float dx = d.x == 0f && d.y == 0f ? facing : d.x;
         float dy = d.y;
 
@@ -234,7 +233,7 @@ public class Player {
         }
     }
 
-    private void applyGravity(float dt, InputHandler input) {
+    private void applyGravity(float dt) {
         float grav = gravity;
         if (vy < 0f) {
             grav *= fallGravityMult;
@@ -330,12 +329,9 @@ public class Player {
                 dashing = false;
                 dashCooldownTimer = dashCooldown;
                 tryInitDashJumpWindow();
-                if (ultraDashActive && ultraDashDown) {
-                    ultraDashActive = false;
+                if (ultraDashDown && ultraDashActive)
                     vx = ultraDashSign * ultraPreSpeed * ultraLandingMult;
-                } else {
-                    ultraDashActive = false;
-                }
+                ultraDashActive = false;
             }
 
             if (ultraLandingPending) {
@@ -429,8 +425,8 @@ public class Player {
     }
 
     public void render(ShapeRenderer sr) {
-        com.badlogic.gdx.Gdx.gl.glEnable(GL20.GL_BLEND);
-        com.badlogic.gdx.Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         sr.begin(ShapeRenderer.ShapeType.Filled);
 
         if (dashing) {
@@ -460,7 +456,7 @@ public class Player {
         sr.rect(x + eyeOffX, eyeY, 2f, 2f);
 
         sr.end();
-        com.badlogic.gdx.Gdx.gl.glDisable(GL20.GL_BLEND);
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     public float       getX()          { return x; }
