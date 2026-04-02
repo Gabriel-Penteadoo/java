@@ -2,8 +2,25 @@ package com.supdevinci.celeste;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.math.Vector2;
 
 public class InputHandler {
+
+    private final Vector2 direction = new Vector2();
+
+    /**
+     * Returns the current directional input as a unit-axis vector.
+     * x: -1 left, 0 neutral, +1 right — same for y (down / up).
+     * The returned object is reused each call; do not store it.
+     */
+    public Vector2 getDirection() {
+        float x = 0f, y = 0f;
+        if (isLeftHeld())  x = -1f;
+        if (isRightHeld()) x =  1f;
+        if (isUpHeld())    y =  1f;
+        if (isDownHeld())  y = -1f;
+        return direction.set(x, y);
+    }
 
     public boolean isLeftHeld() {
         return Gdx.input.isKeyPressed(Keys.LEFT) || Gdx.input.isKeyPressed(Keys.A);

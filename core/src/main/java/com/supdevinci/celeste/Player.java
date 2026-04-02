@@ -1,85 +1,95 @@
 package com.supdevinci.celeste;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 public class Player {
 
-    public static final float WIDTH = 10f;
-    public static final float HEIGHT = 14f;
+    // ── Dimensions (accessible to GameCamera) ──────────────────────────────
+    public final float width  = 10f;
+    public final float height = 14f;
 
-    private static final float RUN_SPEED = 100f;
-    private static final float RUN_ACCEL = 1400f;
-    private static final float RUN_ACCEL_AIR = 900f;
-    private static final float RUN_DECEL = 2500f;
-    private static final float RUN_DECEL_AIR = 400f;
+    // ── Movement ───────────────────────────────────────────────────────────
+    private final float runSpeed    = 100f;
+    private final float runAccel    = 1400f;
+    private final float runAccelAir = 900f;
+    private final float runDecel    = 2500f;
+    private final float runDecelAir = 400f;
 
-    private static final float GRAVITY = -900f;
-    private static final float FALL_GRAVITY_MULT = 2.0f;
-    private static final float EARLY_RELEASE_MULT = 2.2f;
-    private static final float MAX_FALL_SPEED = -520f;
+    // ── Gravity ────────────────────────────────────────────────────────────
+    private final float gravity          = -900f;
+    private final float fallGravityMult  = 2.0f;
+    private final float earlyReleaseMult = 2.2f;
+    private final float maxFallSpeed     = -520f;
 
-    private static final float JUMP_SPEED = 270f;
-    private static final float COYOTE_TIME = 0.10f;
-    private static final float JUMP_BUFFER_TIME = 0.12f;
-    private static final float VARIABLE_JUMP_TIME = 0.13f;
+    // ── Jump ───────────────────────────────────────────────────────────────
+    private final float jumpSpeed        = 270f;
+    private final float coyoteTime       = 0.10f;
+    private final float jumpBufferTime   = 0.12f;
+    private final float variableJumpTime = 0.13f;
 
-    private static final float DASH_SPEED = 320f;
-    private static final float DASH_DURATION = 0.14f;
-    private static final float DASH_COOLDOWN = 0.2f;
+    // ── Dash ───────────────────────────────────────────────────────────────
+    private final float dashSpeed    = 320f;
+    private final float dashDuration = 0.14f;
+    private final float dashCooldown = 0.2f;
 
-    private static final float WALL_SLIDE_SPEED = -45f;
-    private static final float WALL_JUMP_X = 200f;
-    private static final float WALL_JUMP_Y = 400f;
-    private static final float WALL_JUMP_LOCK_TIME = 0.16f;
+    // ── Wall mechanics ─────────────────────────────────────────────────────
+    private final float wallSlideSpeed   = -45f;
+    private final float wallJumpX        = 200f;
+    private final float wallJumpY        = 400f;
+    private final float wallJumpLockTime = 0.16f;
 
-    private static final float HYPER_SPEED = 580f;
-    private static final float HYPER_VERTICAL = 260f;
+    // ── Advanced combos ────────────────────────────────────────────────────
+    private final float hyperSpeed    = 580f;
+    private final float hyperVertical = 260f;
+    private final float superSpeed    = 450f;
+    private final float superJumpForce = 300f;
 
-    private static final float SUPER_SPEED = 450f;
-    private static final float SUPER_JUMP_FORCE = 300f;
+    private final float dashJumpWindow  = 0.10f;
+    private final float ultraThreshold  = 250f;
+    private final float ultraLandingMult = 1.1f;
 
-    private static final float DASH_JUMP_WINDOW = 0.10f;
-    private static final float ULTRA_THRESHOLD = 250f;
-    private static final float ULTRA_LANDING_MULT = 1.1f;
-
-    private float x, y; // bottom-left of AABB
+    // ── Physics state ──────────────────────────────────────────────────────
+    private float x, y;   // bottom-left of AABB
     private float vx, vy; // px/s
-
     private float spawnX, spawnY;
 
     private boolean grounded;
     private boolean onWallLeft;
     private boolean onWallRight;
 
+    // ── Timers ─────────────────────────────────────────────────────────────
     private float coyoteTimer;
     private float jumpBufferTimer;
     private float variableJumpTimer;
-
-    private boolean canDash = true;
-    private boolean dashing = false;
-    private float dashTimer = 0f;
     private float dashCooldownTimer = 0f;
-    private float dashDirX, dashDirY;
-
     private float wallJumpLockTimer = 0f;
-
-    // hyper/super dash state
-    private boolean dashJumpIsHyper = false; // true=hyper (down-diag), false=super (horiz)
-    private int dashJumpDirSign = 0;
     private float dashJumpWindowTimer = 0f;
 
-    // ultra dash state
-    private boolean ultraDashActive = false;
-    private boolean ultraDashDown = false; // true=down-diag, false=up-diag
-    private float ultraPreSpeed = 0f;
-    private int ultraDashSign = 0;
+    // ── Dash state ─────────────────────────────────────────────────────────
+    private boolean canDash  = true;
+    private boolean dashing  = false;
+    private float   dashTimer = 0f;
+    private float   dashDirX, dashDirY;
+
+    // ── Hyper / super dash ─────────────────────────────────────────────────
+    private boolean dashJumpIsHyper = false;
+    private int     dashJumpDirSign = 0;
+
+    // ── Ultra dash ─────────────────────────────────────────────────────────
+    private boolean ultraDashActive    = false;
+    private boolean ultraDashDown      = false;
+    private float   ultraPreSpeed      = 0f;
+    private int     ultraDashSign      = 0;
     private boolean ultraLandingPending = false;
 
-    private boolean dead = false;
-    private boolean won = false;
-    private int facing = 1; // 1=right, -1=left
+    // ── Status ─────────────────────────────────────────────────────────────
+    private boolean     dead   = false;
+    private boolean     won    = false;
+    private int         facing = 1; // 1=right, -1=left
+    private PlayerState state  = PlayerState.IDLE;
+
+    // ── Constructor ────────────────────────────────────────────────────────
 
     public Player(float spawnX, float spawnY) {
         this.spawnX = spawnX;
@@ -88,53 +98,41 @@ public class Player {
     }
 
     public void respawn(float sx, float sy) {
-        x = sx;
-        y = sy;
+        x = sx; y = sy;
         vx = vy = 0f;
 
-        grounded = false;
-        onWallLeft = false;
-        onWallRight = false;
+        grounded = false; onWallLeft = false; onWallRight = false;
 
-        canDash = true;
-        dashing = false;
-        dashTimer = 0f;
-        dashCooldownTimer = 0f;
+        canDash = true; dashing = false;
+        dashTimer = 0f; dashCooldownTimer = 0f;
 
-        coyoteTimer = 0f;
-        jumpBufferTimer = 0f;
-        variableJumpTimer = 0f;
-        wallJumpLockTimer = 0f;
+        coyoteTimer = 0f; jumpBufferTimer = 0f;
+        variableJumpTimer = 0f; wallJumpLockTimer = 0f;
 
-        dashJumpIsHyper = false;
-        dashJumpDirSign = 0;
-        dashJumpWindowTimer = 0f;
+        dashJumpIsHyper = false; dashJumpDirSign = 0; dashJumpWindowTimer = 0f;
 
-        ultraDashActive = false;
-        ultraDashDown = false;
-        ultraPreSpeed = 0f;
-        ultraDashSign = 0;
-        ultraLandingPending = false;
+        ultraDashActive = false; ultraDashDown = false;
+        ultraPreSpeed = 0f; ultraDashSign = 0; ultraLandingPending = false;
 
-        dead = false;
-        won = false;
+        dead = false; won = false;
+        state = PlayerState.IDLE;
     }
 
+    // ── Main update ────────────────────────────────────────────────────────
+
     public void update(float dt, InputHandler input, Level level) {
-        if (dead || won)
-            return;
+        if (dead || won) return;
 
         if (input.isJumpJustPressed())
-            jumpBufferTimer = JUMP_BUFFER_TIME;
+            jumpBufferTimer = jumpBufferTime;
 
         if (input.isDashJustPressed() && canDash && !dashing && dashCooldownTimer <= 0f)
             startDash(input);
 
-        if (dashCooldownTimer > 0f)
-            dashCooldownTimer -= dt;
+        if (dashCooldownTimer > 0f) dashCooldownTimer -= dt;
 
         if (dashing) {
-            updateDash(dt, input);
+            updateDash(dt);
         } else {
             applyGravity(dt, input);
             applyHorizontalMovement(dt, input);
@@ -142,67 +140,68 @@ public class Player {
         }
 
         moveAndCollide(dt, level);
-        if (dead)
-            return;
+        if (dead) return;
 
         checkWalls(level);
 
         if (grounded) {
-            coyoteTimer = COYOTE_TIME;
+            coyoteTimer = coyoteTime;
             canDash = true;
-        } else {
-            if (coyoteTimer > 0f)
-                coyoteTimer -= dt;
+        } else if (coyoteTimer > 0f) {
+            coyoteTimer -= dt;
         }
 
-        if (wallJumpLockTimer > 0f)
-            wallJumpLockTimer -= dt;
+        if (wallJumpLockTimer  > 0f) wallJumpLockTimer  -= dt;
+        if (jumpBufferTimer    > 0f) jumpBufferTimer     -= dt;
+        if (dashJumpWindowTimer > 0f) dashJumpWindowTimer -= dt;
 
         if (!dashing) {
             boolean wallSliding = (onWallLeft || onWallRight) && !grounded && vy < 0f;
-            float maxFall = wallSliding ? WALL_SLIDE_SPEED : MAX_FALL_SPEED;
-            if (vy < maxFall)
-                vy = maxFall;
+            float maxFall = wallSliding ? wallSlideSpeed : maxFallSpeed;
+            if (vy < maxFall) vy = maxFall;
         }
 
-        if (jumpBufferTimer > 0f)
-            jumpBufferTimer -= dt;
-        if (dashJumpWindowTimer > 0f)
-            dashJumpWindowTimer -= dt;
+        if (vx > 1f)  facing = 1;
+        if (vx < -1f) facing = -1;
 
-        if (vx > 1f)
-            facing = 1;
-        if (vx < -1f)
-            facing = -1;
+        updateState();
     }
+
+    // ── State machine ──────────────────────────────────────────────────────
+
+    private void updateState() {
+        if (dead)    { state = PlayerState.DEAD;         return; }
+        if (won)     { state = PlayerState.WON;          return; }
+        if (dashing) { state = PlayerState.DASHING;      return; }
+        if (!grounded && (onWallLeft || onWallRight) && vy < 0f) {
+            state = PlayerState.WALL_SLIDING; return;
+        }
+        if (!grounded && vy > 0f)  { state = PlayerState.JUMPING; return; }
+        if (!grounded)             { state = PlayerState.FALLING;  return; }
+        if (Math.abs(vx) > 1f)    { state = PlayerState.RUNNING;  return; }
+        state = PlayerState.IDLE;
+    }
+
+    // ── Dash ───────────────────────────────────────────────────────────────
 
     private void startDash(InputHandler input) {
         dashJumpWindowTimer = 0f;
         ultraDashActive = false;
         ultraLandingPending = false;
 
-        float dx = 0f, dy = 0f;
-        if (input.isLeftHeld())
-            dx = -1f;
-        if (input.isRightHeld())
-            dx = 1f;
-        if (input.isUpHeld())
-            dy = 1f;
-        if (input.isDownHeld())
-            dy = -1f;
-
-        if (dx == 0f && dy == 0f)
-            dx = facing; // no input → dash in facing direction
+        com.badlogic.gdx.math.Vector2 d = input.getDirection();
+        float dx = d.x == 0f && d.y == 0f ? facing : d.x;
+        float dy = d.y;
 
         float absVx = Math.abs(vx);
-        if (absVx >= ULTRA_THRESHOLD && dx != 0f && dy != 0f) {
+        if (absVx >= ultraThreshold && dx != 0f && dy != 0f) {
             ultraDashActive = true;
-            ultraDashDown = dy < 0f;
-            ultraPreSpeed = absVx;
-            ultraDashSign = (int) Math.signum(dx);
+            ultraDashDown   = dy < 0f;
+            ultraPreSpeed   = absVx;
+            ultraDashSign   = (int) Math.signum(dx);
         }
 
-        if (dx != 0f && dy != 0f) { // normalize diagonal (1/√2)
+        if (dx != 0f && dy != 0f) {
             dashDirX = dx * 0.7071f;
             dashDirY = dy * 0.7071f;
         } else {
@@ -210,405 +209,308 @@ public class Player {
             dashDirY = dy;
         }
 
-        dashing = true;
-        dashTimer = DASH_DURATION;
-        canDash = false;
+        dashing  = true;
+        dashTimer = dashDuration;
+        canDash  = false;
         variableJumpTimer = 0f;
     }
 
-    private void updateDash(float dt, InputHandler input) {
+    private void updateDash(float dt) {
         dashTimer -= dt;
 
         if (ultraDashActive) {
-            // preserve pre-dash speed if it exceeds the dash's horizontal component
-            float dashHx = Math.abs(dashDirX) * DASH_SPEED;
+            float dashHx = Math.abs(dashDirX) * dashSpeed;
             vx = ultraDashSign * Math.max(ultraPreSpeed, dashHx);
-            vy = dashDirY * DASH_SPEED;
+            vy = dashDirY * dashSpeed;
         } else {
-            vx = dashDirX * DASH_SPEED;
-            vy = dashDirY * DASH_SPEED;
+            vx = dashDirX * dashSpeed;
+            vy = dashDirY * dashSpeed;
         }
 
         if (dashTimer <= 0f) {
             dashing = false;
-            dashCooldownTimer = DASH_COOLDOWN;
+            dashCooldownTimer = dashCooldown;
 
             if (ultraDashActive) {
                 ultraDashActive = false;
                 if (ultraDashDown) {
-                    if (grounded) {
-                        vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
-                        Gdx.app.log("Player", "DOWN ULTRA (ground)! vx=" + vx);
-                    } else {
-                        ultraLandingPending = true;
-                    }
-                } else {
-                    // up-ultra: momentum cut at dash end
-                    if (Math.abs(vx) > RUN_SPEED)
-                        vx = ultraDashSign * RUN_SPEED;
-                    Gdx.app.log("Player", "UP ULTRA end — momentum cut. vx=" + vx);
+                    if (grounded) vx = ultraDashSign * ultraPreSpeed * ultraLandingMult;
+                    else          ultraLandingPending = true;
+                } else if (Math.abs(vx) > runSpeed) {
+                    vx = ultraDashSign * runSpeed;
                 }
             }
 
-            boolean isDownDiag = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
-            boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
-
-            if (isDownDiag || isHorizontal) {
-                dashJumpIsHyper = isDownDiag;
-                dashJumpDirSign = (int) Math.signum(dashDirX);
-                dashJumpWindowTimer = DASH_JUMP_WINDOW;
-            }
+            tryInitDashJumpWindow();
         }
     }
 
+    /** Shared logic: set up the hyper/super window when dash ends or the player lands mid-dash. */
+    private void tryInitDashJumpWindow() {
+        boolean isDownDiag   = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
+        boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
+        if (isDownDiag || isHorizontal) {
+            dashJumpIsHyper    = isDownDiag;
+            dashJumpDirSign    = (int) Math.signum(dashDirX);
+            dashJumpWindowTimer = dashJumpWindow;
+        }
+    }
+
+    // ── Physics ────────────────────────────────────────────────────────────
+
     private void applyGravity(float dt, InputHandler input) {
-        float grav = GRAVITY;
+        float grav = gravity;
         if (vy < 0f) {
-            grav *= FALL_GRAVITY_MULT;
+            grav *= fallGravityMult;
         } else if (vy > 0f && variableJumpTimer <= 0f) {
-            grav *= EARLY_RELEASE_MULT;
+            grav *= earlyReleaseMult;
         }
         vy += grav * dt;
     }
 
     private void applyHorizontalMovement(float dt, InputHandler input) {
-        float inputX = 0f;
-        if (wallJumpLockTimer <= 0f) {
-            if (input.isLeftHeld())
-                inputX = -1f;
-            if (input.isRightHeld())
-                inputX = 1f;
-        }
+        float inputX = wallJumpLockTimer <= 0f ? input.getDirection().x : 0f;
 
-        float accel = grounded ? RUN_ACCEL : RUN_ACCEL_AIR;
-        float decel = grounded ? RUN_DECEL : RUN_DECEL_AIR;
-        float target = inputX * RUN_SPEED;
+        float accel  = grounded ? runAccel    : runAccelAir;
+        float decel  = grounded ? runDecel    : runDecelAir;
+        float target = inputX * runSpeed;
 
         if (inputX != 0f) {
-            if (Math.abs(vx) < RUN_SPEED || Math.signum(vx) != Math.signum(inputX)) {
+            if (Math.abs(vx) < runSpeed || Math.signum(vx) != Math.signum(inputX))
                 vx = moveTowards(vx, target, accel * dt);
-            } else {
+            else
                 vx = moveTowards(vx, target, decel * dt);
-            }
         } else {
             vx = moveTowards(vx, 0f, decel * dt);
         }
     }
 
     private void updateJump(float dt, InputHandler input) {
+        // Hyper / super dash jump
         if (dashJumpWindowTimer > 0f && jumpBufferTimer > 0f && grounded) {
-            int jumpDirSign;
-            if (input.isRightHeld())
-                jumpDirSign = 1;
-            else if (input.isLeftHeld())
-                jumpDirSign = -1;
-            else
-                jumpDirSign = dashJumpDirSign;
+            float dx = input.getDirection().x;
+            int dir = dx > 0 ? 1 : dx < 0 ? -1 : dashJumpDirSign;
 
             if (dashJumpIsHyper) {
-                vx = jumpDirSign * HYPER_SPEED;
-                vy = HYPER_VERTICAL;
-                Gdx.app.log("Player", "HYPER DASH! vx=" + vx + " vy=" + vy
-                        + (jumpDirSign != dashJumpDirSign ? " (REVERSE)" : ""));
+                vx = dir * hyperSpeed;
+                vy = hyperVertical;
             } else {
-                vx = jumpDirSign * SUPER_SPEED;
-                vy = SUPER_JUMP_FORCE;
-                variableJumpTimer = VARIABLE_JUMP_TIME;
-                Gdx.app.log("Player", "SUPER DASH! vx=" + vx + " vy=" + vy
-                        + (jumpDirSign != dashJumpDirSign ? " (REVERSE)" : ""));
+                vx = dir * superSpeed;
+                vy = superJumpForce;
+                variableJumpTimer = variableJumpTime;
             }
-            jumpBufferTimer = 0f;
+
+            jumpBufferTimer    = 0f;
             dashJumpWindowTimer = 0f;
             grounded = false;
             return;
         }
 
-        boolean canCoyoteJump = coyoteTimer > 0f;
+        // Coyote / wall jump
+        boolean canCoyote  = coyoteTimer > 0f;
         boolean canWallJump = (onWallLeft || onWallRight) && !grounded;
 
-        if (jumpBufferTimer > 0f && (canCoyoteJump || canWallJump)) {
+        if (jumpBufferTimer > 0f && (canCoyote || canWallJump)) {
             if (canWallJump) {
-                boolean holdingAway = onWallLeft ? input.isRightHeld() : input.isLeftHeld();
-                boolean holdingTowards = onWallLeft ? input.isLeftHeld() : input.isRightHeld();
-                float wallJumpX = (holdingAway || holdingTowards) ? WALL_JUMP_X : WALL_JUMP_X * 0.5f;
-                vy = WALL_JUMP_Y;
-                vx = onWallLeft ? wallJumpX : -wallJumpX;
-                wallJumpLockTimer = WALL_JUMP_LOCK_TIME;
+                float wjX = input.getDirection().x != 0 ? wallJumpX : wallJumpX * 0.5f;
+                vy = wallJumpY;
+                vx = onWallLeft ? wjX : -wjX;
+                wallJumpLockTimer = wallJumpLockTime;
                 coyoteTimer = 0f;
             } else {
-                vy = JUMP_SPEED;
+                vy = jumpSpeed;
                 coyoteTimer = 0f;
-                variableJumpTimer = VARIABLE_JUMP_TIME;
+                variableJumpTimer = variableJumpTime;
             }
             jumpBufferTimer = 0f;
             grounded = false;
         }
 
+        // Variable jump height
         if (variableJumpTimer > 0f) {
-            if (input.isJumpHeld())
-                variableJumpTimer -= dt;
-            else
-                variableJumpTimer = 0f;
+            if (input.isJumpHeld()) variableJumpTimer -= dt;
+            else                    variableJumpTimer  = 0f;
         }
     }
 
+    // ── Collision ──────────────────────────────────────────────────────────
+
     private void moveAndCollide(float dt, Level level) {
         boolean wasGrounded = grounded;
-        grounded = false; // reset each frame; resolveY sets it back if needed
+        grounded = false;
 
-        final int STEPS = 4; // sub-step to prevent tunnelling at high speed
-        float subDt = dt / STEPS;
+        final int steps = 4; // sub-step to prevent tunnelling at high speed
+        float subDt = dt / steps;
 
-        for (int i = 0; i < STEPS; i++) {
+        for (int i = 0; i < steps; i++) {
             x += vx * subDt;
             resolveX(level);
-            if (dead)
-                return;
+            if (dead) return;
 
             y += vy * subDt;
             resolveY(level);
-            if (dead)
-                return;
+            if (dead) return;
         }
 
+        // Landing
         if (grounded && !wasGrounded) {
             variableJumpTimer = 0f;
 
             if (dashing) {
-                boolean isDownDiag = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
-                boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
                 dashing = false;
-                dashCooldownTimer = DASH_COOLDOWN;
-                if (isDownDiag || isHorizontal) {
-                    dashJumpIsHyper = isDownDiag;
-                    dashJumpDirSign = (int) Math.signum(dashDirX);
-                    dashJumpWindowTimer = DASH_JUMP_WINDOW;
-                }
+                dashCooldownTimer = dashCooldown;
+                tryInitDashJumpWindow();
                 if (ultraDashActive && ultraDashDown) {
                     ultraDashActive = false;
-                    vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
-                    Gdx.app.log("Player", "DOWN ULTRA (mid-dash landing)! vx=" + vx);
+                    vx = ultraDashSign * ultraPreSpeed * ultraLandingMult;
                 } else {
                     ultraDashActive = false;
                 }
             }
 
             if (ultraLandingPending) {
-                vx = ultraDashSign * ultraPreSpeed * ULTRA_LANDING_MULT;
+                vx = ultraDashSign * ultraPreSpeed * ultraLandingMult;
                 ultraLandingPending = false;
-                Gdx.app.log("Player", "DOWN ULTRA landing! vx=" + vx);
             }
         }
     }
 
     private void resolveX(Level level) {
-        int bottom = tileY(y + 2f); // +2 avoids corner-grazing
-        int top = tileY(y + HEIGHT - 2f);
+        int bottom = tileCoord(y + 2f, level.tileSize);
+        int top    = tileCoord(y + height - 2f, level.tileSize);
 
         if (vx > 0f) {
-            int right = tileX(x + WIDTH);
-            for (int ty = bottom; ty <= top; ty++) {
-                if (checkTileX(right, ty, level, true))
-                    return;
-            }
+            int right = tileCoord(x + width, level.tileSize);
+            for (int ty = bottom; ty <= top; ty++)
+                if (checkTileX(right, ty, level, true)) return;
         } else if (vx < 0f) {
-            int left = tileX(x);
-            for (int ty = bottom; ty <= top; ty++) {
-                if (checkTileX(left, ty, level, false))
-                    return;
-            }
+            int left = tileCoord(x, level.tileSize);
+            for (int ty = bottom; ty <= top; ty++)
+                if (checkTileX(left, ty, level, false)) return;
         }
     }
 
     private boolean checkTileX(int tx, int ty, Level level, boolean movingRight) {
         if (level.isSolid(tx, ty)) {
-            x = movingRight ? tx * Level.TILE_SIZE - WIDTH : (tx + 1) * Level.TILE_SIZE;
+            x  = movingRight ? tx * level.tileSize - width : (tx + 1) * level.tileSize;
             vx = 0f;
             return true;
         }
-        if (level.isSpike(tx, ty)) {
-            die();
-            return true;
-        }
-        if (level.isGoal(tx, ty)) {
-            win();
-            return true;
-        }
+        if (level.isSpike(tx, ty)) { die(); return true; }
+        if (level.isGoal(tx, ty))  { win(); return true; }
         return false;
     }
 
     private void resolveY(Level level) {
-        int left = tileX(x + 2f); // +2 avoids corner-grazing
-        int right = tileX(x + WIDTH - 2f);
+        int left  = tileCoord(x + 2f, level.tileSize);
+        int right = tileCoord(x + width - 2f, level.tileSize);
 
         if (vy < 0f) {
-            int bottom = tileY(y);
-            for (int tx = left; tx <= right; tx++) {
-                if (checkTileY(tx, bottom, level, false))
-                    return;
-            }
+            int bottom = tileCoord(y, level.tileSize);
+            for (int tx = left; tx <= right; tx++)
+                if (checkTileY(tx, bottom, level, false)) return;
         } else if (vy > 0f) {
-            int top = tileY(y + HEIGHT);
-            for (int tx = left; tx <= right; tx++) {
-                if (checkTileY(tx, top, level, true))
-                    return;
-            }
+            int top = tileCoord(y + height, level.tileSize);
+            for (int tx = left; tx <= right; tx++)
+                if (checkTileY(tx, top, level, true)) return;
         }
     }
 
     private boolean checkTileY(int tx, int ty, Level level, boolean movingUp) {
         if (level.isSolid(tx, ty)) {
-            if (movingUp)
-                y = ty * Level.TILE_SIZE - HEIGHT;
-            else {
-                y = (ty + 1) * Level.TILE_SIZE;
-                grounded = true;
-            }
+            if (movingUp) y = ty * level.tileSize - height;
+            else { y = (ty + 1) * level.tileSize; grounded = true; }
             vy = 0f;
             return true;
         }
-        if (level.isSpike(tx, ty)) {
-            die();
-            return true;
-        }
-        if (level.isGoal(tx, ty)) {
-            win();
-            return true;
-        }
+        if (level.isSpike(tx, ty)) { die(); return true; }
+        if (level.isGoal(tx, ty))  { win(); return true; }
         return false;
     }
 
     private void checkWalls(Level level) {
-        onWallLeft = false;
-        onWallRight = false;
-        if (grounded)
-            return;
+        onWallLeft = false; onWallRight = false;
+        if (grounded) return;
 
-        int bottom = tileY(y + 4f);
-        int top = tileY(y + HEIGHT - 4f);
-        int leftTile = tileX(x - 1f);
-        int rightTile = tileX(x + WIDTH + 1f);
+        int bottom    = tileCoord(y + 4f, level.tileSize);
+        int top       = tileCoord(y + height - 4f, level.tileSize);
+        int leftTile  = tileCoord(x - 1f, level.tileSize);
+        int rightTile = tileCoord(x + width + 1f, level.tileSize);
 
         for (int ty = bottom; ty <= top; ty++) {
-            if (level.isSolid(leftTile, ty)) {
-                onWallLeft = true;
-                break;
-            }
+            if (level.isSolid(leftTile, ty))  { onWallLeft  = true; break; }
         }
         for (int ty = bottom; ty <= top; ty++) {
-            if (level.isSolid(rightTile, ty)) {
-                onWallRight = true;
-                break;
-            }
+            if (level.isSolid(rightTile, ty)) { onWallRight = true; break; }
         }
     }
 
-    private int tileX(float worldX) {
-        return (int) Math.floor(worldX / Level.TILE_SIZE);
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    private int tileCoord(float world, int tileSize) {
+        return (int) Math.floor(world / tileSize);
     }
 
-    private int tileY(float worldY) {
-        return (int) Math.floor(worldY / Level.TILE_SIZE);
-    }
-
-    private void die() {
-        dead = true;
-    }
-
-    private void win() {
-        won = true;
-    }
+    private void die() { dead = true; }
+    private void win() { won  = true; }
 
     private float moveTowards(float current, float target, float step) {
         float diff = target - current;
-        if (Math.abs(diff) <= step)
-            return target;
+        if (Math.abs(diff) <= step) return target;
         return current + Math.signum(diff) * step;
     }
 
-    public void render(ShapeRenderer sr) {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    // ── Rendering ──────────────────────────────────────────────────────────
 
+    public void render(ShapeRenderer sr) {
+        com.badlogic.gdx.Gdx.gl.glEnable(GL20.GL_BLEND);
+        com.badlogic.gdx.Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         sr.begin(ShapeRenderer.ShapeType.Filled);
 
+        // Auras (back to front)
         if (dashing) {
-            sr.setColor(0.3f, 0.9f, 1.0f, 0.45f);
-            sr.rect(x - 5, y - 5, WIDTH + 10, HEIGHT + 10);
+            sr.setColor(GameColors.PLAYER_DASH_AURA);
+            sr.rect(x - 5, y - 5, width + 10, height + 10);
         }
-
         if (dashJumpWindowTimer > 0f) {
-            sr.setColor(0.2f, 1f, 0.4f, 0.35f);
-            sr.rect(x - 3, y - 3, WIDTH + 6, HEIGHT + 6);
+            sr.setColor(GameColors.PLAYER_JUMP_WINDOW_AURA);
+            sr.rect(x - 3, y - 3, width + 6, height + 6);
         }
-
         if ((onWallLeft || onWallRight) && !grounded) {
-            sr.setColor(1f, 0.5f, 0.1f, 0.5f);
-            sr.rect(x - 2, y, WIDTH + 4, HEIGHT);
+            sr.setColor(GameColors.PLAYER_WALL_AURA);
+            sr.rect(x - 2, y, width + 4, height);
         }
 
-        if (dashing) {
-            sr.setColor(0.6f, 1f, 1f, 1f);
-        } else {
-            sr.setColor(1f, 1f, 1f, 1f);
-        }
-        sr.rect(x, y, WIDTH, HEIGHT);
+        // Body
+        sr.setColor(dashing ? GameColors.PLAYER_DASHING : GameColors.PLAYER_BODY);
+        sr.rect(x, y, width, height);
 
-        if (canDash) {
-            sr.setColor(1f, 0.4f, 0.6f, 1f);
-        } else {
-            sr.setColor(0.55f, 0.1f, 0.1f, 1f);
-        }
-        float hairW = WIDTH * 0.6f;
-        sr.rect(x + (WIDTH - hairW) * 0.5f, y + HEIGHT, hairW, 3f);
+        // Hair
+        sr.setColor(canDash ? GameColors.PLAYER_HAIR_READY : GameColors.PLAYER_HAIR_SPENT);
+        float hairW = width * 0.6f;
+        sr.rect(x + (width - hairW) * 0.5f, y + height, hairW, 3f);
 
-        sr.setColor(0.05f, 0.05f, 0.1f, 1f);
-        float eyeY = y + HEIGHT * 0.55f;
-        if (facing >= 0) {
-            sr.rect(x + WIDTH * 0.20f, eyeY, 2f, 2f);
-            sr.rect(x + WIDTH * 0.60f, eyeY, 2f, 2f);
-        } else {
-            sr.rect(x + WIDTH * 0.20f, eyeY, 2f, 2f);
-            sr.rect(x + WIDTH * 0.58f, eyeY, 2f, 2f);
-        }
+        // Eyes
+        sr.setColor(GameColors.PLAYER_EYE);
+        float eyeY    = y + height * 0.55f;
+        float eyeOffX = facing >= 0 ? width * 0.60f : width * 0.58f;
+        sr.rect(x + width * 0.20f, eyeY, 2f, 2f);
+        sr.rect(x + eyeOffX, eyeY, 2f, 2f);
 
         sr.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
+        com.badlogic.gdx.Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-    public float getX() {
-        return x;
-    }
+    // ── Accessors ──────────────────────────────────────────────────────────
 
-    public float getY() {
-        return y;
-    }
-
-    public boolean isDead() {
-        return dead;
-    }
-
-    public boolean hasWon() {
-        return won;
-    }
-
-    public boolean isGrounded() {
-        return grounded;
-    }
-
-    public boolean isOnWallLeft() {
-        return onWallLeft;
-    }
-
-    public boolean isOnWallRight() {
-        return onWallRight;
-    }
-
-    public boolean isDashing() {
-        return dashing;
-    }
-
-    public boolean canDash() {
-        return canDash;
-    }
+    public float       getX()          { return x; }
+    public float       getY()          { return y; }
+    public boolean     isDead()        { return dead; }
+    public boolean     hasWon()        { return won; }
+    public boolean     isGrounded()    { return grounded; }
+    public boolean     isOnWallLeft()  { return onWallLeft; }
+    public boolean     isOnWallRight() { return onWallRight; }
+    public boolean     isDashing()     { return dashing; }
+    public boolean     canDash()       { return canDash; }
+    public PlayerState getState()      { return state; }
 }

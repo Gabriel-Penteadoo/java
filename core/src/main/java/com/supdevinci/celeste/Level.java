@@ -7,16 +7,18 @@ import com.badlogic.gdx.math.Rectangle;
 
 public class Level {
 
-    public static final int TILE_SIZE = 16;
+    // ── Constants ──────────────────────────────────────────────────────────
+    public final int tileSize = 16;
 
-    private static final int TILE_SOLID = 1;
-    private static final int TILE_SPIKE = 2;
-    private static final int TILE_GOAL = 3;
+    private final int tileSolid = 1;
+    private final int tileSpike = 2;
+    private final int tileGoal  = 3;
 
-    private static final String MAP_FILE = "level1.tmx";
+    private final String mapFile = "level1.tmx";
 
-    public static int COLS = 212;
-    public static int ROWS = 20;
+    // ── State ──────────────────────────────────────────────────────────────
+    private int cols = 212;
+    private int rows = 20;
 
     private TiledMap tiledMap;
     private int[][] tiles; // [row][col], row 0 = top
@@ -28,39 +30,38 @@ public class Level {
         loadMap();
     }
 
+    // ── Loading ────────────────────────────────────────────────────────────
+
     private void loadMap() {
-        tiledMap = new TmxMapLoader().load(MAP_FILE);
+        tiledMap = new TmxMapLoader().load(mapFile);
+        cols = tiledMap.getProperties().get("width",  Integer.class);
+        rows = tiledMap.getProperties().get("height", Integer.class);
+        tiles = new int[rows][cols];
 
-        COLS = tiledMap.getProperties().get("width", Integer.class);
-        ROWS = tiledMap.getProperties().get("height", Integer.class);
+        fillLayer(tiledMap, "walls",  tileSolid);
+        fillLayer(tiledMap, "spikes", tileSpike);
 
-        tiles = new int[ROWS][COLS];
+        spawnX = 2 * tileSize;
+        spawnY = 3 * tileSize;
 
-        fillLayer(tiledMap, "walls", TILE_SOLID);
-        fillLayer(tiledMap, "spikes", TILE_SPIKE);
-
-        spawnX = 2 * TILE_SIZE;
-        spawnY = 3 * TILE_SIZE;
-
-        int goalTileX = COLS - 8;
+        int goalTileX = cols - 8;
         int goalTileY = 2;
-        goalX = goalTileX * TILE_SIZE;
-        goalY = goalTileY * TILE_SIZE;
+        goalX = goalTileX * tileSize;
+        goalY = goalTileY * tileSize;
 
-        int goalRow = ROWS - 1 - goalTileY;
-        if (goalRow >= 0 && goalRow < ROWS && goalTileX >= 0 && goalTileX < COLS) {
-            tiles[goalRow][goalTileX] = TILE_GOAL;
+        int goalRow = rows - 1 - goalTileY;
+        if (goalRow >= 0 && goalRow < rows && goalTileX >= 0 && goalTileX < cols) {
+            tiles[goalRow][goalTileX] = tileGoal;
         }
     }
 
-    // LibGDX tile layers use y=0 at bottom; tiles[][] uses row 0 at top
+    /** LibGDX tile layers use y=0 at bottom; tiles[][] uses row 0 at top. */
     private void fillLayer(TiledMap map, String layerName, int tileType) {
         TiledMapTileLayer layer = (TiledMapTileLayer) map.getLayers().get(layerName);
-        if (layer == null)
-            return;
-        for (int gdxRow = 0; gdxRow < ROWS; gdxRow++) {
-            int tilesRow = ROWS - 1 - gdxRow;
-            for (int col = 0; col < COLS; col++) {
+        if (layer == null) return;
+        for (int gdxRow = 0; gdxRow < rows; gdxRow++) {
+            int tilesRow = rows - 1 - gdxRow;
+            for (int col = 0; col < cols; col++) {
                 TiledMapTileLayer.Cell cell = layer.getCell(col, gdxRow);
                 if (cell != null && cell.getTile() != null) {
                     tiles[tilesRow][col] = tileType;
@@ -69,59 +70,39 @@ public class Level {
         }
     }
 
-    public TiledMap getTiledMap() {
-        return tiledMap;
-    }
+    // ── Tile queries ───────────────────────────────────────────────────────
 
     public boolean isSolid(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY))
-            return true; // treat OOB as solid
-        return tiles[ROWS - 1 - tileY][tileX] == TILE_SOLID;
+        if (outOfBounds(tileX, tileY)) return true; // treat OOB as solid
+        return tiles[rows - 1 - tileY][tileX] == tileSolid;
     }
 
     public boolean isSpike(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY))
-            return false;
-        return tiles[ROWS - 1 - tileY][tileX] == TILE_SPIKE;
+        if (outOfBounds(tileX, tileY)) return false;
+        return tiles[rows - 1 - tileY][tileX] == tileSpike;
     }
 
     public boolean isGoal(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY))
-            return false;
-        return tiles[ROWS - 1 - tileY][tileX] == TILE_GOAL;
+        if (outOfBounds(tileX, tileY)) return false;
+        return tiles[rows - 1 - tileY][tileX] == tileGoal;
     }
 
     private boolean outOfBounds(int tx, int ty) {
-        return tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS;
+        return tx < 0 || ty < 0 || tx >= cols || ty >= rows;
     }
 
-    public Rectangle getGoalRect() {
-        return new Rectangle(goalX, goalY, TILE_SIZE, TILE_SIZE);
-    }
+    // ── Accessors ──────────────────────────────────────────────────────────
 
-    public float getSpawnX() {
-        return spawnX;
-    }
+    public TiledMap getTiledMap() { return tiledMap; }
 
-    public float getSpawnY() {
-        return spawnY;
-    }
+    public Rectangle getGoalRect() { return new Rectangle(goalX, goalY, tileSize, tileSize); }
 
-    public float getGoalX() {
-        return goalX;
-    }
-
-    public float getGoalY() {
-        return goalY;
-    }
-
-    public float getWidth() {
-        return COLS * TILE_SIZE;
-    }
-
-    public float getHeight() {
-        return ROWS * TILE_SIZE;
-    }
+    public float getSpawnX() { return spawnX; }
+    public float getSpawnY() { return spawnY; }
+    public float getGoalX()  { return goalX;  }
+    public float getGoalY()  { return goalY;  }
+    public float getWidth()  { return cols * tileSize; }
+    public float getHeight() { return rows * tileSize; }
 
     public void dispose() {
         if (tiledMap != null) {
