@@ -7,7 +7,6 @@ import com.badlogic.gdx.math.Rectangle;
 
 public class Level {
 
-    // ── Constants ──────────────────────────────────────────────────────────
     public final int tileSize = 16;
 
     private final int tileSolid = 1;
@@ -16,7 +15,6 @@ public class Level {
 
     private final String mapFile = "level1.tmx";
 
-    // ── State ──────────────────────────────────────────────────────────────
     private int cols = 212;
     private int rows = 20;
 
@@ -29,8 +27,6 @@ public class Level {
     public Level() {
         loadMap();
     }
-
-    // ── Loading ────────────────────────────────────────────────────────────
 
     private void loadMap() {
         tiledMap = new TmxMapLoader().load(mapFile);
@@ -55,7 +51,7 @@ public class Level {
         }
     }
 
-    /** LibGDX tile layers use y=0 at bottom; tiles[][] uses row 0 at top. */
+    // LibGDX tile layers use y=0 at bottom; tiles[][] uses row 0 at top.
     private void fillLayer(TiledMap map, String layerName, int tileType) {
         TiledMapTileLayer layer = (TiledMapTileLayer) map.getLayers().get(layerName);
         if (layer == null) return;
@@ -70,10 +66,8 @@ public class Level {
         }
     }
 
-    // ── Tile queries ───────────────────────────────────────────────────────
-
     public boolean isSolid(int tileX, int tileY) {
-        if (outOfBounds(tileX, tileY)) return true; // treat OOB as solid
+        if (outOfBounds(tileX, tileY)) return true;
         return tiles[rows - 1 - tileY][tileX] == tileSolid;
     }
 
@@ -90,8 +84,6 @@ public class Level {
     private boolean outOfBounds(int tx, int ty) {
         return tx < 0 || ty < 0 || tx >= cols || ty >= rows;
     }
-
-    // ── Accessors ──────────────────────────────────────────────────────────
 
     public TiledMap getTiledMap() { return tiledMap; }
 

@@ -4,7 +4,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Matrix4;
 
-/** Draws all on-screen UI text using colors from {@link GameColors}. */
 public class Hud {
 
     private static final String HINT_TEXT =
@@ -26,11 +25,9 @@ public class Hud {
         batch.setProjectionMatrix(uiMatrix);
         batch.begin();
 
-        // Dash indicator
         font.setColor(player.canDash() ? GameColors.HUD_DASH_READY : GameColors.HUD_DASH_SPENT);
         font.draw(batch, "DASH: " + (player.canDash() ? "READY" : "SPENT"), 6, vpH - 6);
 
-        // Win message
         if (player.hasWon()) {
             font.setColor(GameColors.HUD_WIN);
             font.draw(batch, "YOU REACHED THE CRYSTAL!", vpW * 0.5f - 90f, vpH * 0.5f + 10f);
@@ -38,7 +35,6 @@ public class Hud {
             font.draw(batch, "Restarting...", vpW * 0.5f - 40f, vpH * 0.5f - 8f);
         }
 
-        // Control hints
         font.setColor(GameColors.HUD_HINT);
         font.draw(batch, HINT_TEXT, 6, 14);
 

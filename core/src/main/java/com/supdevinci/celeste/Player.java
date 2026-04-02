@@ -5,41 +5,34 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 public class Player {
 
-    // ── Dimensions (accessible to GameCamera) ──────────────────────────────
     public final float width  = 10f;
     public final float height = 14f;
 
-    // ── Movement ───────────────────────────────────────────────────────────
     private final float runSpeed    = 100f;
     private final float runAccel    = 1400f;
     private final float runAccelAir = 900f;
     private final float runDecel    = 2500f;
     private final float runDecelAir = 400f;
 
-    // ── Gravity ────────────────────────────────────────────────────────────
     private final float gravity          = -900f;
     private final float fallGravityMult  = 2.0f;
     private final float earlyReleaseMult = 2.2f;
     private final float maxFallSpeed     = -520f;
 
-    // ── Jump ───────────────────────────────────────────────────────────────
     private final float jumpSpeed        = 270f;
     private final float coyoteTime       = 0.10f;
     private final float jumpBufferTime   = 0.12f;
     private final float variableJumpTime = 0.13f;
 
-    // ── Dash ───────────────────────────────────────────────────────────────
     private final float dashSpeed    = 320f;
     private final float dashDuration = 0.14f;
     private final float dashCooldown = 0.2f;
 
-    // ── Wall mechanics ─────────────────────────────────────────────────────
     private final float wallSlideSpeed   = -45f;
     private final float wallJumpX        = 200f;
     private final float wallJumpY        = 400f;
     private final float wallJumpLockTime = 0.16f;
 
-    // ── Advanced combos ────────────────────────────────────────────────────
     private final float hyperSpeed    = 580f;
     private final float hyperVertical = 260f;
     private final float superSpeed    = 450f;
@@ -49,16 +42,14 @@ public class Player {
     private final float ultraThreshold  = 250f;
     private final float ultraLandingMult = 1.1f;
 
-    // ── Physics state ──────────────────────────────────────────────────────
-    private float x, y;   // bottom-left of AABB
-    private float vx, vy; // px/s
+    private float x, y;
+    private float vx, vy;
     private float spawnX, spawnY;
 
     private boolean grounded;
     private boolean onWallLeft;
     private boolean onWallRight;
 
-    // ── Timers ─────────────────────────────────────────────────────────────
     private float coyoteTimer;
     private float jumpBufferTimer;
     private float variableJumpTimer;
@@ -66,30 +57,24 @@ public class Player {
     private float wallJumpLockTimer = 0f;
     private float dashJumpWindowTimer = 0f;
 
-    // ── Dash state ─────────────────────────────────────────────────────────
     private boolean canDash  = true;
     private boolean dashing  = false;
     private float   dashTimer = 0f;
     private float   dashDirX, dashDirY;
 
-    // ── Hyper / super dash ─────────────────────────────────────────────────
     private boolean dashJumpIsHyper = false;
     private int     dashJumpDirSign = 0;
 
-    // ── Ultra dash ─────────────────────────────────────────────────────────
     private boolean ultraDashActive    = false;
     private boolean ultraDashDown      = false;
     private float   ultraPreSpeed      = 0f;
     private int     ultraDashSign      = 0;
     private boolean ultraLandingPending = false;
 
-    // ── Status ─────────────────────────────────────────────────────────────
     private boolean     dead   = false;
     private boolean     won    = false;
     private int         facing = 1; // 1=right, -1=left
     private PlayerState state  = PlayerState.IDLE;
-
-    // ── Constructor ────────────────────────────────────────────────────────
 
     public Player(float spawnX, float spawnY) {
         this.spawnX = spawnX;
@@ -117,8 +102,6 @@ public class Player {
         dead = false; won = false;
         state = PlayerState.IDLE;
     }
-
-    // ── Main update ────────────────────────────────────────────────────────
 
     public void update(float dt, InputHandler input, Level level) {
         if (dead || won) return;
@@ -167,8 +150,6 @@ public class Player {
         updateState();
     }
 
-    // ── State machine ──────────────────────────────────────────────────────
-
     private void updateState() {
         if (dead)    { state = PlayerState.DEAD;         return; }
         if (won)     { state = PlayerState.WON;          return; }
@@ -181,8 +162,6 @@ public class Player {
         if (Math.abs(vx) > 1f)    { state = PlayerState.RUNNING;  return; }
         state = PlayerState.IDLE;
     }
-
-    // ── Dash ───────────────────────────────────────────────────────────────
 
     private void startDash(InputHandler input) {
         dashJumpWindowTimer = 0f;
@@ -245,7 +224,6 @@ public class Player {
         }
     }
 
-    /** Shared logic: set up the hyper/super window when dash ends or the player lands mid-dash. */
     private void tryInitDashJumpWindow() {
         boolean isDownDiag   = dashDirY < -0.5f && Math.abs(dashDirX) > 0.5f;
         boolean isHorizontal = dashDirY == 0f && dashDirX != 0f;
@@ -255,8 +233,6 @@ public class Player {
             dashJumpWindowTimer = dashJumpWindow;
         }
     }
-
-    // ── Physics ────────────────────────────────────────────────────────────
 
     private void applyGravity(float dt, InputHandler input) {
         float grav = gravity;
@@ -286,7 +262,6 @@ public class Player {
     }
 
     private void updateJump(float dt, InputHandler input) {
-        // Hyper / super dash jump
         if (dashJumpWindowTimer > 0f && jumpBufferTimer > 0f && grounded) {
             float dx = input.getDirection().x;
             int dir = dx > 0 ? 1 : dx < 0 ? -1 : dashJumpDirSign;
@@ -306,7 +281,6 @@ public class Player {
             return;
         }
 
-        // Coyote / wall jump
         boolean canCoyote  = coyoteTimer > 0f;
         boolean canWallJump = (onWallLeft || onWallRight) && !grounded;
 
@@ -326,14 +300,11 @@ public class Player {
             grounded = false;
         }
 
-        // Variable jump height
         if (variableJumpTimer > 0f) {
             if (input.isJumpHeld()) variableJumpTimer -= dt;
             else                    variableJumpTimer  = 0f;
         }
     }
-
-    // ── Collision ──────────────────────────────────────────────────────────
 
     private void moveAndCollide(float dt, Level level) {
         boolean wasGrounded = grounded;
@@ -352,7 +323,6 @@ public class Player {
             if (dead) return;
         }
 
-        // Landing
         if (grounded && !wasGrounded) {
             variableJumpTimer = 0f;
 
@@ -445,8 +415,6 @@ public class Player {
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
-
     private int tileCoord(float world, int tileSize) {
         return (int) Math.floor(world / tileSize);
     }
@@ -460,14 +428,11 @@ public class Player {
         return current + Math.signum(diff) * step;
     }
 
-    // ── Rendering ──────────────────────────────────────────────────────────
-
     public void render(ShapeRenderer sr) {
         com.badlogic.gdx.Gdx.gl.glEnable(GL20.GL_BLEND);
         com.badlogic.gdx.Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         sr.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Auras (back to front)
         if (dashing) {
             sr.setColor(GameColors.PLAYER_DASH_AURA);
             sr.rect(x - 5, y - 5, width + 10, height + 10);
@@ -481,16 +446,13 @@ public class Player {
             sr.rect(x - 2, y, width + 4, height);
         }
 
-        // Body
         sr.setColor(dashing ? GameColors.PLAYER_DASHING : GameColors.PLAYER_BODY);
         sr.rect(x, y, width, height);
 
-        // Hair
         sr.setColor(canDash ? GameColors.PLAYER_HAIR_READY : GameColors.PLAYER_HAIR_SPENT);
         float hairW = width * 0.6f;
         sr.rect(x + (width - hairW) * 0.5f, y + height, hairW, 3f);
 
-        // Eyes
         sr.setColor(GameColors.PLAYER_EYE);
         float eyeY    = y + height * 0.55f;
         float eyeOffX = facing >= 0 ? width * 0.60f : width * 0.58f;
@@ -500,8 +462,6 @@ public class Player {
         sr.end();
         com.badlogic.gdx.Gdx.gl.glDisable(GL20.GL_BLEND);
     }
-
-    // ── Accessors ──────────────────────────────────────────────────────────
 
     public float       getX()          { return x; }
     public float       getY()          { return y; }

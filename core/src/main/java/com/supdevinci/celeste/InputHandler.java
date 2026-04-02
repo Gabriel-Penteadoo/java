@@ -8,11 +8,6 @@ public class InputHandler {
 
     private final Vector2 direction = new Vector2();
 
-    /**
-     * Returns the current directional input as a unit-axis vector.
-     * x: -1 left, 0 neutral, +1 right — same for y (down / up).
-     * The returned object is reused each call; do not store it.
-     */
     public Vector2 getDirection() {
         float x = 0f, y = 0f;
         if (isLeftHeld())  x = -1f;
