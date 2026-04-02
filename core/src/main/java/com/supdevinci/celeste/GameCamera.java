@@ -23,6 +23,7 @@ public class GameCamera {
         this.camera.setToOrtho(false, vpW, vpH);
     }
 
+    /** Instantly centres the camera. Call once when the level starts, before any {@link #update}. */
     public void snapTo(float cx, float cy, Level level) {
         targetY = cy;
         camera.position.set(clampX(cx, level), clampY(cy, level), 0f);

@@ -8,6 +8,7 @@ public class InputHandler {
 
     private final Vector2 direction = new Vector2();
 
+    /** Returns a reused instance — do not store the reference. */
     public Vector2 getDirection() {
         float x = 0f, y = 0f;
         if (isLeftHeld())  x = -1f;

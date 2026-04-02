@@ -37,6 +37,7 @@ public class EffectTimer {
     }
 
     public boolean isFlashing() { return flashTimer > 0f; }
+    /** True while the game should be frozen — outlasts the flash to hold on the death/win frame. */
     public boolean isPaused()   { return pauseTimer > 0f; }
 
     public float getFlashAlpha() {
